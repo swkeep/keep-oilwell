@@ -3,19 +3,43 @@ local QBCore = exports['qb-core']:GetCoreObject()
 OBJECT = nil
 
 -- class
-local OilRigs = {
+OilRigs = {
      data_table = {}
 }
 
-function OilRigs:add(s_res)
-     if self.data_table[s_res.netId] ~= nil then
+function OilRigs:add(s_res, netId)
+     if self.data_table[netId] ~= nil then
           return
      end
-     s_res.entity = NetworkGetEntityFromNetworkId(s_res.netId)
-     self.data_table[s_res.netId] = {}
-     self.data_table[s_res.netId] = s_res
-     local anim_speed = math.floor((s_res.metadata.speed / 10))
+     s_res.entity = NetworkGetEntityFromNetworkId(netId)
+     self.data_table[netId] = {}
+     self.data_table[netId] = s_res
+     if s_res.isOwner == true then
+          createBlip(s_res.position.coord)
+     end
+     local anim_speed = Round((s_res.metadata.speed / Config.AnimationSpeedDivider), 2)
      OilRigs:syncSpeed(s_res.entity, anim_speed)
+end
+
+function OilRigs:update(s_res, netId)
+     if self.data_table[netId] == nil then
+          return
+     end
+     s_res.entity = NetworkGetEntityFromNetworkId(netId)
+     s_res.Qbtarget = self.data_table[netId].Qbtarget
+     self.data_table[netId] = s_res
+     local anim_speed = Round((s_res.metadata.speed / Config.AnimationSpeedDivider), 2)
+     self:syncSpeed(s_res.entity, anim_speed)
+end
+
+function OilRigs:startUpdate(cb)
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
+          for key, value in pairs(result) do
+               self:update(value, key)
+               Wait(15)
+          end
+          cb(true)
+     end)
 end
 
 function OilRigs:syncSpeed(entity, anim_speed)
@@ -45,7 +69,6 @@ function OilRigs:readAll()
 end
 
 --
-
 RegisterNetEvent('keep-oilrig:client:spawn')
 AddEventHandler('keep-oilrig:client:spawn', function()
      local coords = ChooseSpawnLocation()
@@ -62,7 +85,7 @@ AddEventHandler('keep-oilrig:client:spawn', function()
                          {
                               type = "client",
                               event = "keep-oilrig:client:enterInformation",
-                              icon = "fa-solid fa-scythe",
+                              icon = "fa-regular fa-file-lines",
                               label = "Assign to player",
                               canInteract = function(entity)
                                    return true
@@ -103,103 +126,50 @@ RegisterNetEvent('keep-oilrig:client:enterInformation', function(qbtarget)
 end)
 
 RegisterNetEvent('keep-oilrig:client:changeRigSpeed', function(qbtarget)
-     local inputData = exports['qb-input']:ShowInput({
-          header = "Change oil rig speed: ",
-          submitText = "change",
-          inputs = { {
-               type = 'text',
-               isRequired = true,
-               name = 'speed',
-               text = "enter rig speed"
-          },
-          }
-     })
-     if inputData then
-          if not inputData.speed and inputData.speed > 0 and inputData.speed < 100 then
-               return
+     OilRigs:startUpdate(function()
+          local rig = OilRigs:getByEntity(qbtarget.entity)
+          local inputData = exports['qb-input']:ShowInput({
+               header = "Change oil rig speed (" .. rig.metadata.speed .. ")",
+               submitText = "change",
+               inputs = { {
+                    type = 'text',
+                    isRequired = true,
+                    name = 'speed',
+                    text = "enter rig speed"
+               },
+               }
+          })
+          if inputData then
+               if not inputData.speed or tonumber(inputData.speed) < 0 and tonumber(inputData.speed) > 100 then
+                    return
+               end
+               local NetId = NetworkGetNetworkIdFromEntity(qbtarget.entity)
+               TriggerServerEvent('keep-oilrig:server:updateSpeed', inputData, NetId)
           end
-          local NetId = NetworkGetNetworkIdFromEntity(qbtarget.entity)
-          TriggerServerEvent('keep-oilrig:server:updateSpeed', inputData, NetId)
-     end
-end)
-
-RegisterNetEvent('keep-oilrig:client:syncOilrigSpeed', function(netId, speed)
-     local entity = NetworkGetEntityFromNetworkId(netId)
-     -- local blip = AddBlipForEntity(
-     --      entity
-     -- )
-     -- SetEntityAsMissionEntity(entity, 0, 0)
-     -- -- blip only for owner
-     -- SetBlipSprite(blip, 436)
-     -- SetBlipColour(blip, 5)
-     -- BeginTextCommandSetBlipName("STRING")
-     -- AddTextComponentString('Oil Rig')
-     -- EndTextCommandSetBlipName(blip)
-     SetEntityAnimSpeed(entity, 'p_v_lev_des_skin', 'p_oil_pjack_03_s', speed + .0)
-end)
-
--- this thing should called when player is loaded
-AddEventHandler('keep-oilrig:client:placeonground', function(netId)
-     local entity = NetworkGetEntityFromNetworkId(netId)
-
-     exports['qb-target']:AddEntityZone("oil-rig-" .. entity, entity, {
-          name = "oil-rig-" .. entity,
-          heading = GetEntityHeading(entity),
-          debugPoly = false,
-     }, {
-          options = {
-               {
-                    type = "client",
-                    event = "keep-oilrig:client:viewPumpInfo",
-                    icon = "fa-solid fa-scythe",
-                    label = "View Pump Info",
-                    s_res = OilRigs:getByEntity(entity),
-                    canInteract = function(entity)
-                         -- only owner should intactet with it!
-                         return true
-                    end,
-               },
-               {
-                    type = "client",
-                    event = "keep-oilrig:client:changeRigSpeed",
-                    icon = "fa-solid fa-scythe",
-                    label = "Modifiy Pump Settings",
-                    canInteract = function(entity)
-                         -- only owner should intactet with it!
-                         return true
-                    end,
-               },
-               {
-                    type = "client",
-                    event = "",
-                    icon = "fa-solid fa-scythe",
-                    label = "Manange Parts",
-                    canInteract = function(entity)
-                         -- only owner should intactet with it!
-                         return true
-                    end,
-               },
-          },
-          distance = 2.5
-     })
+     end)
 end)
 
 AddEventHandler('onResourceStart', function(resourceName)
      if (GetCurrentResourceName() ~= resourceName) then
           return
      end
-     TriggerServerEvent('keep-oilrig:server:spawnOilrigsOnResourceStart')
-
      Wait(1500)
      QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
           for key, value in pairs(result) do
-               OilRigs:add(value)
-               Wait(7)
-               if value.isOwner == true then
-                    TriggerEvent('keep-oilrig:client:placeonground', value.netId)
-               end
+               OilRigs:add(value, key)
           end
+          DistanceTracker()
      end)
+     -- local coord = vector3(1691.16, -1664.68, 111.47)
+     -- coord = vector3(1713.23, -1656.19, 112.47)
+     -- local rigmodel = GetHashKey('prop_storagetank_03b')
+     -- rigmodel = GetHashKey('v_ind_cm_electricbox') -- blender
+     -- rigmodel = GetHashKey('prop_storagetank_06') -- storage
+
+
+     -- local oilrig = CreateObject(rigmodel, coord.x, coord.y, coord.z, 1, 1, 0)
+     -- PlaceObjectOnGroundProperly(oilrig)
+     -- FreezeEntityPosition(oilrig, true)
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
@@ -207,10 +177,84 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
      QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
           for key, value in pairs(result) do
                if value.isOwner == true then
-                    TriggerEvent('keep-oilrig:client:placeonground', value.netId)
+                    -- TriggerEvent('keep-oilrig:client:giveControlToOwner', value.netId)
                end
                OilRigs:add(value)
           end
-
+          DistanceTracker()
      end)
+end)
+
+function giveControlToOwner(entity)
+     createOwnerQbTarget(entity)
+end
+
+--- remove/add qbtarget by distance
+function DistanceTracker()
+     CreateThread(function()
+          local rigs = OilRigs:readAll()
+          local plyped = PlayerPedId()
+          while true do
+               for key, value in pairs(rigs) do
+                    local entity = NetworkGetEntityFromNetworkId(key)
+                    if entity ~= 0 then
+                         local coord = value.position.coord
+                         local pedCoord = GetEntityCoords(plyped)
+                         local distance = GetDistanceBetweenCoords(coord.x, coord.y, coord.z, pedCoord.x, pedCoord.y, pedCoord.z, true)
+                         if distance < 5.0 then
+                              -- biotech_vacuum_pump
+                              value.entity = entity
+                              -- add qbtarget
+                              if value.Qbtarget == nil and value.entity ~= 0 then
+                                   value.Qbtarget = "oil-rig-" .. value.entity
+                                   giveControlToOwner(value.entity)
+                              end
+                         elseif distance > 5.0 then
+                              value.entity = entity
+                              -- remove qbtarget if player is far away
+                              if value.Qbtarget ~= nil and value.entity ~= 0 then
+                                   exports['qb-target']:RemoveZone(value.Qbtarget)
+                                   value.Qbtarget = nil
+                              end
+                         end
+                    end
+               end
+               Wait(1000)
+          end
+     end)
+end
+
+---force remove objects in area
+---@param coord table
+RegisterNetEvent('keep-oilrig:client:clearArea', function(coord)
+     ClearAreaOfObjects(
+          coord.x,
+          coord.y,
+          coord.z,
+          10.0,
+          1
+     )
+end)
+
+RegisterNetEvent('keep-oilrig:client:syncSpeed', function(netId, speed)
+     -- slowly increase and decrease speed of oilwell/pump
+     local actionSpeed = Config.actionSpeed
+     local entity = NetworkGetEntityFromNetworkId(netId)
+     local rig = OilRigs:getByEntity(entity)
+     local currentspeed = rig.metadata.speed
+     if currentspeed > speed then
+          while currentspeed >= speed and currentspeed > 0 do
+               currentspeed = currentspeed - actionSpeed
+               local anim_speed = Round((currentspeed / Config.AnimationSpeedDivider), 2)
+               SetEntityAnimSpeed(entity, 'p_v_lev_des_skin', 'p_oil_pjack_03_s', anim_speed + .0)
+               Wait(1000)
+          end
+     elseif currentspeed < speed then
+          while currentspeed <= speed and currentspeed >= 0 do
+               currentspeed = currentspeed + actionSpeed
+               local anim_speed = Round((currentspeed / Config.AnimationSpeedDivider), 2)
+               SetEntityAnimSpeed(entity, 'p_v_lev_des_skin', 'p_oil_pjack_03_s', anim_speed + .0)
+               Wait(1000)
+          end
+     end
 end)

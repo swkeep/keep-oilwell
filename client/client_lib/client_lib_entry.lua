@@ -70,3 +70,65 @@ function ChooseSpawnLocation()
                false, true, 2, nil, nil, false)
      end
 end
+
+function createBlip(coord)
+     local blip = AddBlipForCoord(
+          coord.x,
+          coord.y,
+          coord.z
+     )
+     SetBlipSprite(blip, 436)
+     SetBlipColour(blip, 5)
+     BeginTextCommandSetBlipName("STRING")
+     AddTextComponentString('Oil Rig')
+     EndTextCommandSetBlipName(blip)
+end
+
+function createOwnerQbTarget(entity)
+     exports['qb-target']:AddEntityZone("oil-rig-" .. entity, entity, {
+          name = "oil-rig-" .. entity,
+          heading = GetEntityHeading(entity),
+          debugPoly = true,
+     }, {
+          options = {
+               {
+                    type = "client",
+                    event = "keep-oilrig:client:viewPumpInfo",
+                    icon = "fa-solid fa-info",
+                    label = "View Pump Info",
+                    canInteract = function(entity)
+                         return true
+                    end,
+               },
+               {
+                    type = "client",
+                    event = "keep-oilrig:client:changeRigSpeed",
+                    icon = "fa-solid fa-gauge-high",
+                    label = "Modifiy Pump Settings",
+                    canInteract = function(entity)
+                         local oilrig = OilRigs:getByEntity(entity)
+                         if oilrig ~= nil and oilrig.isOwner == true then
+                              return true
+                         else
+                              return false
+                         end
+                    end,
+               },
+               {
+                    type = "client",
+                    event = "",
+                    icon = "fa-solid fa-gears",
+                    label = "Manange Parts",
+                    canInteract = function(entity)
+                         local oilrig = OilRigs:getByEntity(entity)
+                         if oilrig ~= nil and oilrig.isOwner == true then
+                              return true
+                         else
+                              return false
+                         end
+                    end,
+               },
+          },
+          distance = 2.5
+     })
+end

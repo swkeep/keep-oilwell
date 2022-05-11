@@ -1,137 +1,196 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-Oilrigs = {} -- cache rigs after loading them from databse/and save their netID
-Gotrigs = false
-local rigmodel = GetHashKey('p_oil_pjack_03_s')
-local serverUpdateInterval = 30000
-
---class
--- class
-local OilRigs = {
-     data_table = {}
+Oilrigs = {
+     oldTable = {},
+     data_table = {},
 }
 
-function OilRigs:add(oilrig)
-     if self.data_table[oilrig.netId] ~= nil then
+local rigmodel = GetHashKey('p_oil_pjack_03_s')
+local serverUpdateInterval = 10000 --  database update interval
+
+--class
+function Oilrigs:startInit()
+     GetAllOilrigsFromDatabase('init')
+end
+
+function Oilrigs:initPhaseTwo(oilrigs)
+     -- wont work without CreateThread
+     Citizen.CreateThread(function()
+          -- spawn objects
+          for key, value in pairs(oilrigs) do
+               local position = json.decode(value.position)
+               -- spawn in coord
+               TriggerClientEvent('keep-oilrig:client:clearArea', -1, position.coord)
+               local entity = CreateObject(rigmodel, position.coord.x, position.coord.y, position.coord.z, 1, 1, 0)
+               while not DoesEntityExist(entity) do
+                    Wait(10)
+               end
+               -- set rotation
+               SetEntityRotation(entity, position.rotation.x, position.rotation.y, position.rotation.z, 0.0, true)
+               -- remove objects in area
+               self:add(value, NetworkGetNetworkIdFromEntity(entity))
+          end
+          for key, value in pairs(Config.locations) do
+               local position = {
+                    coord = {
+                         x = value.position.x,
+                         y = value.position.y,
+                         z = value.position.z
+                    }
+               }
+
+               TriggerClientEvent('keep-oilrig:client:clearArea', -1, position.coord)
+               local entity = CreateObject(GetHashKey(value.model), position.coord.x, position.coord.y, position.coord.z, 1, 1, 0)
+               while not DoesEntityExist(entity) do
+                    Wait(10)
+               end
+               SetEntityHeading(entity, value.position.w)
+          end
+          self:saveThread()
+          metadataTracker(self.data_table)
+     end)
+end
+
+function Oilrigs:add(oilrig, netId)
+     if self.data_table[netId] ~= nil then
           return
      end
-     oilrig.entity = NetworkGetEntityFromNetworkId(oilrig.netId)
+     self.data_table[netId] = {}
+     oilrig.entity = NetworkGetEntityFromNetworkId(netId)
      oilrig.metadata = json.decode(oilrig.metadata)
-     self.data_table[oilrig.netId] = {}
-     self.data_table[oilrig.netId] = oilrig
+     oilrig.position = json.decode(oilrig.position)
+     self.data_table[netId] = oilrig
 end
 
-function OilRigs:update(oilrig_hash, newData)
-     for key, value in pairs(self.data_table) do
-          if value.oilrig_hash == oilrig_hash then
-               value = newData
-               print(equals(value, newData))
-               return true
-          end
-     end
-     return false
-end
-
-function OilRigs:keep_updated()
+function Oilrigs:saveThread()
      CreateThread(function()
           while true do
-               Wait(serverUpdateInterval - 100)
-               Gotrigs = false
-               GetAllOilrigsFromDatabase()
-               while Gotrigs == false do
-                    Wait(500)
-               end
-               for key, value in pairs(Oilrigs) do
-                    OilRigs:update(Oilrigs[key].oilrig_hash, value)
+               self.oldTable = deepcopy(self.data_table)
+               Wait(serverUpdateInterval)
+               ---save metadata when we detected they are changed!
+               if isTableChanged(self.oldTable, self.data_table) == true then
+                    for key, value in pairs(self.data_table) do
+                         GeneralUpdate({
+                              type = 'metadata',
+                              citizenid = value.citizenid,
+                              oilrig_hash = value.oilrig_hash,
+                              metadata = value.metadata
+                         })
+                    end
                end
           end
      end)
 end
 
-function OilRigs:getByHash(oilrig_hash)
+function Oilrigs:getByHash(oilrig_hash)
      for key, value in pairs(self.data_table) do
           if value.oilrig_hash == oilrig_hash then
-               return value
+               return value, key
           end
      end
      return false
 end
 
-function OilRigs:read(netId)
+function Oilrigs:read(netId)
      return self.data_table[netId]
 end
 
-function OilRigs:readAll()
+function Oilrigs:readAll()
      return self.data_table
 end
 
 -- ===========================================
 --          Spawn / object Control
 -- ===========================================
-
--- create networked oilrigs
-RegisterNetEvent('keep-oilrig:server:spawnOilrigsOnResourceStart', function()
-     GetAllOilrigsFromDatabase()
-     -- should add timeout!
-     while Gotrigs == false do
-          Wait(500)
+AddEventHandler('onResourceStart', function(resourceName)
+     if (GetCurrentResourceName() ~= resourceName) then
+          return
      end
-     for key, value in pairs(Oilrigs) do
-          value.position = json.decode(value.position)
-          local coord = value.position.coord
-          local rotation = value.position.rotation
-          local entity = CreateObject(rigmodel, coord.x, coord.y, coord.z, 1, 1, 0)
-          while not DoesEntityExist(entity) do
-               Wait(10)
-          end
-          SetEntityRotation(entity, rotation.x, rotation.y, rotation.z, 0.0, true)
-
-          local PedNetId = NetworkGetNetworkIdFromEntity(entity)
-          Oilrigs[key].netId = PedNetId
-          OilRigs:add(Oilrigs[key])
-     end
-     Wait(75)
-     globalOilrigsDataTracker()
-     OilRigs:keep_updated()
+     Oilrigs:startInit()
 end)
-
-RegisterNetEvent('keep-oilrig:server:syncOilrigSpeed', function(netId, speed)
-     TriggerClientEvent('keep-oilrig:client:syncOilrigSpeed', -1, netId, speed)
-end)
-
 -- ==========================================
 --          Update / server Side
 -- ==========================================
 
-function globalOilrigsDataTracker()
+function metadataTracker(oilrigs)
+     local pumpOverHeat = 327
+     local curdeOilpethousr = 100
      CreateThread(function()
           while true do
-               for key, oilrig in pairs(OilRigs:readAll()) do
-                    -- update oilrig data
-
+               for key, value in pairs(oilrigs) do
+                    if value.metadata.speed ~= 0 then
+                         value.metadata.duration = value.metadata.duration + 1
+                         value.metadata.secduration = value.metadata.duration
+                         if value.metadata.temp ~= nil and pumpOverHeat >= value.metadata.temp then
+                              value.metadata.temp = tempGrowth(value.metadata.temp, value.metadata.speed, 'increase', pumpOverHeat)
+                         else
+                              value.metadata.temp = pumpOverHeat
+                         end
+                         if value.metadata.temp > 50 and value.metadata.temp < (pumpOverHeat - 25) and value.metadata.oil_storage <= 300 then
+                              value.metadata.oil_storage = value.metadata.oil_storage + (0.1 * (value.metadata.speed / 50))
+                              print(value.metadata.oil_storage)
+                         end
+                    else
+                         -- reset duration
+                         if value.metadata.duration ~= 0 then
+                              value.metadata.duration = 0
+                         end
+                         -- start cooling down procces
+                         if value.metadata.secduration > 0 then
+                              value.metadata.secduration = value.metadata.secduration - 1
+                              value.metadata.temp = tempGrowth(value.metadata.temp, value.metadata.speed, 'decrease', pumpOverHeat)
+                         elseif value.metadata.secduration == 0 then
+                              value.metadata.temp = 0
+                         end
+                    end
                end
-               Wait(serverUpdateInterval)
+               Wait(1000)
           end
      end)
+end
+
+QBCore.Functions.CreateCallback('keep-oilrig:client_lib:PumpOilToStorageCallback', function(source, cb, data)
+     local oilrig, netId = Oilrigs:getByHash(data)
+     print('moved to storage', netId, oilrig.metadata.oil_storage)
+     oilrig.metadata.oil_storage = 0.0
+     cb(true)
+end)
+
+function tempGrowth(tmp, speed, Type, max)
+     if tmp == nil then
+          return 0
+     end
+     if Type == 'increase' then
+          if tmp >= 0 and tmp < (max / 4) then
+               tmp = tmp + (1 * speed / 20)
+          elseif tmp >= (max / 4) and tmp < max then
+               tmp = tmp + (1 * speed / 75)
+          else
+               tmp = max
+          end
+     else
+          if tmp > 0 then
+               tmp = tmp - 10
+          else
+               tmp = 0
+          end
+     end
+     return tmp
 end
 
 RegisterNetEvent('keep-oilrig:server:updateSpeed', function(inputData, NetId)
      local player = QBCore.Functions.GetPlayer(source)
      if player ~= nil then
           -- validate speed for 0 - 100
-          local speed = tonumber(inputData.speed)
-          local PlayerData = player.PlayerData
-          local oilrig = OilRigs:read(NetId)
-          local anim_speed = math.floor(speed / 10)
-          oilrig.metadata.speed = speed
-          UpdateOilrigMetadata({
-               citizenid = PlayerData.citizenid,
-               oilrig_hash = oilrig.oilrig_hash,
-               metadata = oilrig.metadata
-          })
-          TriggerClientEvent('keep-oilrig:client:syncOilrigSpeed', -1, NetId, anim_speed)
-     else
-          TriggerClientEvent('QBCore:Notify', source, "failed")
+          local oilrig = Oilrigs:read(NetId)
+          if player.PlayerData.citizenid == oilrig.citizenid then
+               local speed = tonumber(inputData.speed)
+               oilrig.metadata.speed = speed
+               -- sync speed on other clients
+               TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, NetId, speed)
+          else
+               TriggerClientEvent('QBCore:Notify', source, "You are not owner of oil pump!")
+          end
      end
 end)
 
@@ -146,15 +205,13 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:getNetIDs', function(source,
      local player = QBCore.Functions.GetPlayer(source)
      local citizenid = player.PlayerData.citizenid
      local temp = {}
-     for key, value in pairs(Oilrigs) do
+     for key, value in pairs(Oilrigs:readAll()) do
+          temp[key] = deepcopy(value)
           if value.citizenid == citizenid then
-               value.isOwner = true
+               temp[key].isOwner = true
+          else
+               temp[key].isOwner = false
           end
-          -- remove elemnts
-          temp[key] = value
-          temp[key].position = nil
-          temp[key].citizenid = nil
-          temp[key].id = nil
      end
      cb(temp)
 end)
@@ -181,6 +238,7 @@ end)
 ---@param inputData any
 ---@param NetId any
 RegisterNetEvent('keep-oilrig:server:regiserOilrig', function(inputData, NetId)
+     -- get player by entered cid
      local cid = tonumber(inputData.cid)
      local player = QBCore.Functions.GetPlayer(cid)
      if player ~= nil then
@@ -211,15 +269,16 @@ RegisterNetEvent('keep-oilrig:server:regiserOilrig', function(inputData, NetId)
                     clutch = 0,
                }
           }
-          InsertInfromation({
+          GeneralInsert({
                citizenid = PlayerData.citizenid,
                name = inputData.name,
                oilrig_hash = RandomHash(15),
                position = position,
-               metadata = metadata
+               metadata = metadata,
+               state = 0
           })
      else
-          TriggerClientEvent('QBCore:Notify', source, "failed")
+          TriggerClientEvent('QBCore:Notify', source, "Could not find player by it cid!")
      end
 end)
 

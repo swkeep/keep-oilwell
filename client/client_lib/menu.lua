@@ -1,3 +1,5 @@
+local QBCore = exports['qb-core']:GetCoreObject()
+
 local menu = MenuV:CreateMenu(false, 'Welcome to MenuV', 'topright', 255, 0, 0, 'size-125', 'none', 'menuv', 'example_namespace')
 local range = menu:AddRange({
      icon = '↔️',
@@ -73,45 +75,60 @@ end)
 menu:OpenWith('KEYBOARD', 'o')
 
 AddEventHandler('keep-oilrig:client:viewPumpInfo', function(qbtarget)
-     local selected_oilrig = qbtarget.s_res.metadata
-     print_table(selected_oilrig)
-     local header = "Name: " .. qbtarget.s_res.name
-     local leave = "leave"
-     local partInfoString = "Belt: " .. selected_oilrig.part_info.belt .. " Polish: " .. selected_oilrig.part_info.polish .. " Clutch: " .. selected_oilrig.part_info.clutch
+     -- ask for updated data
+     OilRigs:startUpdate(function()
+          showInfo(OilRigs:getByEntity(qbtarget.entity))
+     end)
+end)
 
+function showInfo(data)
+     local selected_oilrig = data.metadata
+     local header = "Name: " .. data.name
+     local partInfoString = "Belt: " .. selected_oilrig.part_info.belt .. " Polish: " .. selected_oilrig.part_info.polish .. " Clutch: " .. selected_oilrig.part_info.clutch
+     local duration = math.floor(selected_oilrig.duration / 60)
      -- header
      local openMenu = {
           {
                header = header,
-               isMenuHeader = true
+               isMenuHeader = true,
+               icon = 'fa-solid fa-pump'
           }, {
-               header = 'Speed:',
-               txt = "" .. selected_oilrig.speed,
-
-          },
-          --  {
-          --      header = 'Duration:',
-          --      txt = "" .. selected_oilrig.duration,
-          -- },
-          {
-               header = 'Temperature:',
-               txt = "" .. selected_oilrig.temp,
+               header = 'Speed',
+               icon = 'fa-solid fa-gauge',
+               txt = "" .. selected_oilrig.speed .. " RPM",
           },
           {
-               header = 'Oil Storage:',
-               txt = "" .. selected_oilrig.oil_storage,
+               header = 'Duration',
+               icon = 'fa-solid fa-clock',
+               txt = "" .. duration .. " Min",
           },
           {
-               header = 'Part Info:',
+               header = 'Temperature',
+               icon = 'fa-solid fa-temperature-high',
+               txt = "" .. selected_oilrig.temp .. " °C",
+          },
+          {
+               header = 'Oil Storage',
+               icon = 'fa-solid fa-oil-can',
+               txt = "" .. selected_oilrig.oil_storage .. "/Gal"
+          },
+          {
+               header = 'Part Info',
+               icon = 'fa-solid fa-oil-can',
                txt = partInfoString,
           },
           {
-               header = 'Pump oil to storage:',
-               txt = "",
+               header = 'Pump oil to storage',
+               icon = 'fa-solid fa-arrows-spin',
+               params = {
+                    event = 'keep-oilrig:client_lib:PumpOilToStorage',
+                    args = {
+                         oilrig_hash = data.oilrig_hash
+                    }
+               }
           },
           {
-               header = leave,
-               txt = "",
+               header = 'leave',
                params = {
                     event = "qb-menu:closeMenu"
                }
@@ -119,45 +136,10 @@ AddEventHandler('keep-oilrig:client:viewPumpInfo', function(qbtarget)
      }
 
      exports['qb-menu']:openMenu(openMenu)
+end
+
+RegisterNetEvent('keep-oilrig:client_lib:PumpOilToStorage', function(data)
+     QBCore.Functions.TriggerCallback('keep-oilrig:client_lib:PumpOilToStorageCallback', function(result)
+
+     end, data.oilrig_hash)
 end)
-
--- AddEventHandler('keep-oilrig:client:viewPumpInfo', function()
---      local header = "Name: "
---      local leave = "leave"
-
---      -- header
---      local openMenu = {
---           {
---                header = header,
---                txt = "pet under control",
---                isMenuHeader = true
---           }, {
---                header = '>',
---                txt = "",
---                params = {
---                     event = "keep-oilrig:client:rotate",
---                     args = {
---                          side = 'right'
---                     }
---                }
-
---           }, {
---                header = '<',
---                txt = "",
---                params = {
---                     event = "keep-oilrig:client:rotate",
---                     args = {
---                          side = 'left'
---                     }
---                }
---           }, {
---                header = leave,
---                txt = "",
---                params = {
---                     event = "qb-menu:closeMenu"
---                }
---           }
---      }
-
---      exports['qb-menu']:openMenu(openMenu)
--- end)
