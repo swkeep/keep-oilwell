@@ -60,6 +60,6 @@ end
 AddEventHandler('keep-oilrig:client:viewPumpInfo', function(qbtarget)
      -- ask for updated data
      OilRigs:startUpdate(function()
-          showInfo(OilRigs:getByEntity(qbtarget.entity))
+          showInfo(OilRigs:getByEntityHandle(qbtarget.entity))
      end)
 end)

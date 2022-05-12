@@ -1,8 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-function showStorage(data)
-     local header = "swkeep's oil storage"
-     local gal = 5
+function showStorage(storage_data)
+     local header = storage_data.name
      -- header
      local openMenu = {
           {
@@ -12,17 +11,25 @@ function showStorage(data)
           }, {
                header = 'Crude oil',
                icon = 'fa-solid fa-oil-can',
-               txt = "" .. gal .. " /gal",
+               txt = "" .. storage_data.metadata.crudeOil .. " /gal",
                params = {
                     event = 'keep-oilrig:client_lib:StorageActions',
+                    args = {
+                         type = 'crudeOil',
+                         storage_data = storage_data
+                    }
                }
           },
           {
                header = 'Gasoline',
                icon = 'fa-solid fa-oil-can',
-               txt = "" .. gal .. " /gal",
+               txt = "" .. storage_data.metadata.gasoline .. " /gal",
                params = {
                     event = 'keep-oilrig:client_lib:StorageActions',
+                    args = {
+                         type = 'gasoline',
+                         storage_data = storage_data
+                    }
                }
           },
           {
@@ -37,7 +44,8 @@ function showStorage(data)
 end
 
 function showStorageActions(data)
-     local header = "Actions"
+     local header = "Actions " .. data.type
+     local storage_data = data.storage_data
      -- header
      local openMenu = {
           {
@@ -50,14 +58,14 @@ function showStorageActions(data)
                txt = "",
                params = {
                     event = 'keep-oilrig:client_lib:StorageWithdraw',
+                    args = data
                }
           },
           {
                header = 'Storage action',
                icon = 'fa-solid fa-arrow-right-arrow-left',
                params = {
-                    event = 'keep-oilrig:client_lib:StorageWithdraw',
-
+                    event = '',
                }
           },
           {
@@ -72,11 +80,17 @@ function showStorageActions(data)
 end
 
 function showStorageWithdraw(data)
-     local header = "Storage withdraw"
+     local header = "Storage withdraw (" .. data.type .. ")"
+     local currentWithdrawTarget = data.storage_data.metadata[data.type] -- oil or gas
      -- header
      local openMenu = {
           {
                header = header,
+               isMenuHeader = true,
+               icon = 'fa-solid fa-boxes-packing'
+          },
+          {
+               header = 'you have ' .. currentWithdrawTarget .. ' gal of ' .. data.type,
                isMenuHeader = true,
                icon = 'fa-solid fa-boxes-packing'
           }, {
@@ -84,7 +98,11 @@ function showStorageWithdraw(data)
                icon = 'fa-solid fa-bottle-droplet',
                txt = "deposit: $500   Capacity: 5000 /gal",
                params = {
-                    event = 'keep-oilrig:client_lib:PumpOilToStorage',
+                    event = 'keep-oilrig:client_lib:Callback',
+                    args = {
+                         eventName = 'keep-oilrig:server:WithdrawWithBarrel',
+                         content = data
+                    }
                }
           },
           {
@@ -92,14 +110,19 @@ function showStorageWithdraw(data)
                icon = 'fa-solid fa-truck-droplet',
                txt = "deposit: $25,000k   Capacity: 100,000 /gal",
                params = {
-                    event = 'keep-oilrig:client_lib:PumpOilToStorage',
+                    event = 'keep-oilrig:client_lib:Callback',
+                    args = {
+                         eventName = 'keep-oilrig:server:WithdrawLoadInTruck',
+                         content = data
+                    }
                }
           },
           {
                header = 'Back',
                icon = 'fa-solid fa-angle-left',
                params = {
-                    event = "keep-oilrig:client_lib:StorageActions"
+                    event = "keep-oilrig:client_lib:StorageActions",
+                    args = data
                }
           }
      }
@@ -114,15 +137,24 @@ AddEventHandler('keep-oilrig:client_lib:PumpOilToStorage', function(data)
 end)
 
 AddEventHandler('keep-oilrig:client_lib:ShowStorage', function(data)
-     showStorage()
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:getStorageData', function(result)
+          showStorage(result)
+     end)
 end)
 
 
-AddEventHandler('keep-oilrig:client_lib:StorageActions', function(data)
-     showStorageActions()
+AddEventHandler('keep-oilrig:client_lib:StorageActions', function(storage_data)
+     showStorageActions(storage_data)
 end)
 
 
 AddEventHandler('keep-oilrig:client_lib:StorageWithdraw', function(data)
-     showStorageWithdraw()
+     showStorageWithdraw(data)
+end)
+
+
+AddEventHandler('keep-oilrig:client_lib:Callback', function(data)
+     QBCore.Functions.TriggerCallback(data.eventName, function(result)
+          print(result)
+     end, data.content)
 end)

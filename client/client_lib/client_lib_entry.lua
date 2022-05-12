@@ -1,3 +1,5 @@
+PlayerJob = {}
+OnDuty = false
 local function Draw2DText(content, font, colour, scale, x, y)
      SetTextFont(font)
      SetTextScale(scale, scale)
@@ -110,7 +112,7 @@ function createOwnerQbTarget(entity)
                     icon = "fa-solid fa-gauge-high",
                     label = "Modifiy Pump Settings",
                     canInteract = function(entity)
-                         local oilrig = OilRigs:getByEntity(entity)
+                         local oilrig = OilRigs:getByEntityHandle(entity)
                          if oilrig ~= nil and oilrig.isOwner == true then
                               return true
                          else
@@ -124,7 +126,7 @@ function createOwnerQbTarget(entity)
                     icon = "fa-solid fa-gears",
                     label = "Manange Parts",
                     canInteract = function(entity)
-                         local oilrig = OilRigs:getByEntity(entity)
+                         local oilrig = OilRigs:getByEntityHandle(entity)
                          if oilrig ~= nil and oilrig.isOwner == true then
                               return true
                          else
@@ -209,3 +211,29 @@ function createEntityQbTarget()
           end
      end
 end
+
+---force remove objects in area
+---@param coord table
+RegisterNetEvent('keep-oilrig:client:clearArea', function(coord)
+     ClearAreaOfObjects(
+          coord.x,
+          coord.y,
+          coord.z,
+          5.0,
+          1
+     )
+end)
+
+
+-- RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
+--      PlayerJob = JobInfo
+--      print_table(PlayerJob)
+--      if PlayerJob.name == 'oilwell' then
+--           OnDuty = PlayerJob.onduty
+--           if PlayerJob.onduty then
+--                -- TriggerServerEvent("hospital:server:AddDoctor", PlayerJob.name)
+--           else
+--                -- TriggerServerEvent("hospital:server:RemoveDoctor", PlayerJob.name)
+--           end
+--      end
+-- end)
