@@ -15,7 +15,12 @@ function OilRigs:add(s_res, netId)
      self.data_table[netId] = {}
      self.data_table[netId] = s_res
      if s_res.isOwner == true then
-          createBlip(s_res.position.coord)
+          createCustom(s_res.position.coord, {
+               sprite = 436,
+               colour = 5,
+               range = 'short',
+               name = 'Oilwell'
+          })
      end
      local anim_speed = Round((s_res.metadata.speed / Config.AnimationSpeedDivider), 2)
      OilRigs:syncSpeed(s_res.entity, anim_speed)
@@ -153,27 +158,19 @@ AddEventHandler('onResourceStart', function(resourceName)
      if (GetCurrentResourceName() ~= resourceName) then
           return
      end
-     Wait(1500)
+     Wait(500)
+     createEntityQbTarget()
      QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
           for key, value in pairs(result) do
                OilRigs:add(value, key)
           end
           DistanceTracker()
      end)
-     -- local coord = vector3(1691.16, -1664.68, 111.47)
-     -- coord = vector3(1713.23, -1656.19, 112.47)
-     -- local rigmodel = GetHashKey('prop_storagetank_03b')
-     -- rigmodel = GetHashKey('v_ind_cm_electricbox') -- blender
-     -- rigmodel = GetHashKey('prop_storagetank_06') -- storage
-
-
-     -- local oilrig = CreateObject(rigmodel, coord.x, coord.y, coord.z, 1, 1, 0)
-     -- PlaceObjectOnGroundProperly(oilrig)
-     -- FreezeEntityPosition(oilrig, true)
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
      -- ask server fro netIDs
+     Wait(1500)
      QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
           for key, value in pairs(result) do
                if value.isOwner == true then
@@ -231,7 +228,7 @@ RegisterNetEvent('keep-oilrig:client:clearArea', function(coord)
           coord.x,
           coord.y,
           coord.z,
-          10.0,
+          5.0,
           1
      )
 end)

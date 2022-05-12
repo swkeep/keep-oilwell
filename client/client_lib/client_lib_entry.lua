@@ -71,17 +71,21 @@ function ChooseSpawnLocation()
      end
 end
 
-function createBlip(coord)
+function createCustom(coord, o)
      local blip = AddBlipForCoord(
           coord.x,
           coord.y,
           coord.z
      )
-     SetBlipSprite(blip, 436)
-     SetBlipColour(blip, 5)
+     SetBlipSprite(blip, o.sprite)
+     SetBlipColour(blip, o.colour)
+     if o.range == 'short' then
+          SetBlipAsShortRange(blip, true)
+     end
      BeginTextCommandSetBlipName("STRING")
-     AddTextComponentString('Oil Rig')
+     AddTextComponentString(o.name)
      EndTextCommandSetBlipName(blip)
+     return blip
 end
 
 function createOwnerQbTarget(entity)
@@ -131,4 +135,77 @@ function createOwnerQbTarget(entity)
           },
           distance = 2.5
      })
+end
+
+function createEntityQbTarget()
+     for key, value in pairs(Config.locations) do
+          local position = {
+               coord = {
+                    x = value.position.x,
+                    y = value.position.y,
+                    z = value.position.z
+               }
+          }
+
+          TriggerEvent('keep-oilrig:client:clearArea', position.coord)
+          Wait(100)
+          local entity = CreateObject(GetHashKey(value.model), position.coord.x, position.coord.y, position.coord.z, 0, 0, 0)
+          SetEntityAsMissionEntity(entity, 0, 0)
+          while not DoesEntityExist(entity) do
+               Wait(10)
+          end
+          SetEntityHeading(entity, value.position.w)
+          FreezeEntityPosition(entity, true)
+          if key == 'storage' then
+               createCustom(position.coord, {
+                    sprite = 361,
+                    colour = 5,
+                    range = 'short',
+                    name = 'Oil ' .. key
+               })
+               exports['qb-target']:AddEntityZone("oil-storage" .. entity, entity, {
+                    name = "oil-storage" .. entity,
+                    heading = GetEntityHeading(entity),
+                    debugPoly = true,
+               }, {
+                    options = {
+                         {
+                              type = "client",
+                              event = "keep-oilrig:client_lib:ShowStorage",
+                              icon = "fa-solid fa-arrows-spin",
+                              label = "View Storage",
+                              canInteract = function(entity)
+                                   return true
+                              end,
+                         },
+                    },
+                    distance = 2.5
+               })
+          elseif key == 'distillation' then
+               createCustom(position.coord, {
+                    sprite = 365,
+                    colour = 5,
+                    range = 'short',
+                    name = 'Oil ' .. key
+               })
+               exports['qb-target']:AddEntityZone("oil-CDU" .. entity, entity, {
+                    name = "oil-CDU" .. entity,
+                    heading = GetEntityHeading(entity),
+                    debugPoly = true,
+               }, {
+                    options = {
+                         {
+                              type = "client",
+                              event = "keep-oilrig:client_lib:ShowCDU",
+                              icon = "fa-solid fa-gear",
+                              label = "Open CDU panel",
+                              canInteract = function(entity)
+                                   return true
+                              end,
+                         },
+                    },
+                    distance = 2.5
+               })
+          end
+     end
 end

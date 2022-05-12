@@ -30,22 +30,6 @@ function Oilrigs:initPhaseTwo(oilrigs)
                -- remove objects in area
                self:add(value, NetworkGetNetworkIdFromEntity(entity))
           end
-          for key, value in pairs(Config.locations) do
-               local position = {
-                    coord = {
-                         x = value.position.x,
-                         y = value.position.y,
-                         z = value.position.z
-                    }
-               }
-
-               TriggerClientEvent('keep-oilrig:client:clearArea', -1, position.coord)
-               local entity = CreateObject(GetHashKey(value.model), position.coord.x, position.coord.y, position.coord.z, 1, 1, 0)
-               while not DoesEntityExist(entity) do
-                    Wait(10)
-               end
-               SetEntityHeading(entity, value.position.w)
-          end
           self:saveThread()
           metadataTracker(self.data_table)
      end)
@@ -114,7 +98,6 @@ end)
 
 function metadataTracker(oilrigs)
      local pumpOverHeat = 327
-     local curdeOilpethousr = 100
      CreateThread(function()
           while true do
                for key, value in pairs(oilrigs) do
@@ -135,7 +118,7 @@ function metadataTracker(oilrigs)
                          if value.metadata.duration ~= 0 then
                               value.metadata.duration = 0
                          end
-                         -- start cooling down procces
+                         -- start cooling procces
                          if value.metadata.secduration > 0 then
                               value.metadata.secduration = value.metadata.secduration - 1
                               value.metadata.temp = tempGrowth(value.metadata.temp, value.metadata.speed, 'decrease', pumpOverHeat)
