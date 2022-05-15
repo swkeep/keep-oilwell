@@ -1,77 +1,6 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-Oilrigs = {
-     oldTable = {},
-     data_table = {},
-}
-
-local serverUpdateInterval = 10000 --  database update interval
-
---class
-function Oilrigs:startInit()
-     GetAllOilrigsFromDatabase('init')
-end
-
-function Oilrigs:initPhaseTwo(oilrigs)
-     -- wont work without CreateThread
-     Citizen.CreateThread(function()
-          -- spawn objects
-          for key, value in pairs(oilrigs) do
-               self:add(value)
-          end
-          self:saveThread()
-          metadataTracker(self.data_table)
-     end)
-end
-
-function Oilrigs:add(oilrig)
-     if self.data_table[oilrig] ~= nil then
-          return
-     end
-     local id = oilrig.id
-     self.data_table[id] = {}
-     oilrig.metadata = json.decode(oilrig.metadata)
-     oilrig.position = json.decode(oilrig.position)
-     self.data_table[id] = oilrig
-end
-
-function Oilrigs:saveThread()
-     CreateThread(function()
-          while true do
-               self.oldTable = deepcopy(self.data_table)
-               Wait(serverUpdateInterval)
-               ---save metadata when we detected they are changed!
-               if isTableChanged(self.oldTable, self.data_table) == true then
-                    for key, value in pairs(self.data_table) do
-                         GeneralUpdate({
-                              type = 'metadata',
-                              citizenid = value.citizenid,
-                              oilrig_hash = value.oilrig_hash,
-                              metadata = value.metadata
-                         })
-                    end
-               end
-          end
-     end)
-end
-
-function Oilrigs:getByHash(oilrig_hash)
-     for key, value in pairs(self.data_table) do
-          if value.oilrig_hash == oilrig_hash then
-               return value, key
-          end
-     end
-     return false
-end
-
-function Oilrigs:read(id)
-     return self.data_table[id]
-end
-
-function Oilrigs:readAll()
-     return self.data_table
-end
-
+--devices
 -- ===========================================
 --          Spawn / object Control
 -- ===========================================
@@ -79,7 +8,8 @@ AddEventHandler('onResourceStart', function(resourceName)
      if (GetCurrentResourceName() ~= resourceName) then
           return
      end
-     Oilrigs:startInit()
+     GlobalScirptData:wipeALL()
+     GlobalScirptData:startInit()
 end)
 -- ==========================================
 --          Update / server Side
@@ -129,86 +59,91 @@ QBCore.Functions.CreateCallback('keep-oilrig:client_lib:PumpOilToStorageCallback
           cb(false)
           return
      end
-     local oilrig, id = Oilrigs:getByHash(data)
+     local oilrig, id = GlobalScirptData:getByHash(data)
      if oilrig.citizenid ~= player.PlayerData.citizenid then
           TriggerClientEvent('QBCore:Notify', source, "You are not owner of Oilwell!")
           cb(false)
           return
      end
-     if oilrig.metadata.oil_storage < 0 then
+     if oilrig.metadata.oil_storage <= 0 then
           TriggerClientEvent('QBCore:Notify', source, "Oil storage is empty!")
           cb(false)
           return
      end
      TriggerClientEvent('QBCore:Notify', source, oilrig.metadata.oil_storage .. " Gallon of Curde Oil pumped to storage")
-     sendOilToStorage(oilrig, player)
+     local res = SendOilToStorage(oilrig, player)
      cb(true)
 end)
-
-
-function sendOilToStorage(oilrig, player)
-     local citizenid = player.PlayerData.citizenid
-     MySQL.Async.fetchSingle('SELECT * FROM oilrig_storage WHERE citizenid = ?', { citizenid }, function(res)
-          if res == nil then
-               initStorage({
-                    citizenid = citizenid,
-                    name = player.PlayerData.charinfo.firstname .. " " .. player.PlayerData.charinfo.lastname .. "'s Storage",
-                    metadata = {
-                         crudeOil = 0,
-                         gasoline = 0
-                    }
-               })
-               return
-          end
-          local metadata = json.decode(res.metadata)
-          metadata.crudeOil = metadata.crudeOil + oilrig.metadata.oil_storage
-          oilrig.metadata.oil_storage = 0.0
-
-          local sqlQuery = 'UPDATE oilrig_storage SET metadata = ? WHERE citizenid = ?'
-          local QueryData = {
-               json.encode({
-                    crudeOil = Round(metadata.crudeOil, 2),
-                    gasoline = 0
-               }),
-               citizenid,
-          }
-          MySQL.Async.execute(sqlQuery, QueryData, function(e)
-          end)
-     end)
-end
-
-function initStorage(o)
-     local sqlQuery = 'INSERT INTO oilrig_storage (citizenid,name,metadata) VALUES (?,?,?)'
-     local QueryData = {
-          o.citizenid,
-          o.name,
-          json.encode(o.metadata),
-     }
-     MySQL.Async.insert(sqlQuery, QueryData)
-end
 
 QBCore.Functions.CreateCallback('keep-oilrig:server:getStorageData', function(source, cb)
      local player = QBCore.Functions.GetPlayer(source)
      local citizenid = player.PlayerData.citizenid
-     MySQL.Async.fetchSingle('SELECT * FROM oilrig_storage WHERE citizenid = ?', { citizenid }, function(res)
-          res.metadata = json.decode(res.metadata)
-          cb(res)
-     end)
-
+     local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+     if storage ~= false then
+          cb(storage)
+          return
+     end
+     cb(false)
 end)
 
 QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawWithBarrel', function(source, cb, data)
      local player = QBCore.Functions.GetPlayer(source)
-     print_table(data)
-     print('Withdraw barrel')
-     cb(player)
+     local citizenid = player.PlayerData.citizenid
+     local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+     if storage == false then
+          cb(false)
+          return
+     end
+     if data.type == 'crudeOil' then
+          local value = storage.metadata.crudeOil
+          storage.metadata.crudeOil = 0.0
+          player.Functions.RemoveMoney('bank', Config.Settings.capacity.oilbarell.price, 'oil barell')
+          player.Functions.AddItem('oilbarell', 1, 1, {
+               gal = value,
+               type = data.type
+          })
+
+     elseif data.type == 'gasoline' then
+          print(storage.metadata.gasoline)
+     end
+     cb(true)
+end)
+
+QBCore.Functions.CreateUseableItem('oilbarell', function(source, item)
+     local Player = QBCore.Functions.GetPlayer(source)
+     print_table(item)
 end)
 
 QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawLoadInTruck', function(source, cb, data)
      local player = QBCore.Functions.GetPlayer(source)
-     print_table(data)
-     print('Withdraw Truck')
-     cb(player)
+     local citizenid = player.PlayerData.citizenid
+     if player.PlayerData.citizenid == data.citizenid then
+          local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+          local value = storage.metadata[data.type]
+          if value == 0.0 then
+               cb(false)
+               return
+          end
+          -- storage.metadata[data.type] = 0.0
+          local Barrel = {
+               { description = 'Oil Barrel',
+                    unique = true,
+                    name = 'oilbarell',
+                    image = 'oilBarrel.png',
+                    weight = 1000,
+                    slot = 1,
+                    label = 'Oil barell',
+                    info = {
+                         gal = value,
+                         type = data.type
+                    },
+                    amount = 1,
+                    shouldClose = true,
+                    useable = false,
+                    type = 'item' }
+          }
+          cb(Barrel)
+     end
 end)
 
 function tempGrowth(tmp, speed, Type, max)
@@ -237,7 +172,7 @@ RegisterNetEvent('keep-oilrig:server:updateSpeed', function(inputData, id)
      local player = QBCore.Functions.GetPlayer(source)
      if player ~= nil then
           -- validate speed for 0 - 100
-          local oilrig = Oilrigs:read(id)
+          local oilrig = GlobalScirptData:read(id)
           if player.PlayerData.citizenid == oilrig.citizenid then
                local speed = tonumber(inputData.speed)
                oilrig.metadata.speed = speed
@@ -260,7 +195,7 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:getNetIDs', function(source,
      local player = QBCore.Functions.GetPlayer(source)
      local citizenid = player.PlayerData.citizenid
      local temp = {}
-     for key, value in pairs(Oilrigs:readAll()) do
+     for key, value in pairs(GlobalScirptData:readAll()) do
           temp[key] = deepcopy(value)
           if value.citizenid == citizenid then
                temp[key].isOwner = true

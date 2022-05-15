@@ -101,7 +101,8 @@ function showStorageWithdraw(data)
                     event = 'keep-oilrig:client_lib:Callback',
                     args = {
                          eventName = 'keep-oilrig:server:WithdrawWithBarrel',
-                         content = data
+                         citizenid = data.storage_data.citizenid,
+                         type = data.type
                     }
                }
           },
@@ -113,7 +114,8 @@ function showStorageWithdraw(data)
                     event = 'keep-oilrig:client_lib:Callback',
                     args = {
                          eventName = 'keep-oilrig:server:WithdrawLoadInTruck',
-                         content = data
+                         citizenid = data.storage_data.citizenid,
+                         type = data.type
                     }
                }
           },
@@ -128,6 +130,54 @@ function showStorageWithdraw(data)
      }
      exports['qb-menu']:openMenu(openMenu)
 end
+
+MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
+     local plyped = PlayerPedId()
+     local pedCoord = GetEntityCoords(plyped)
+     local finished = false
+     local distance = GetDistanceBetweenCoords(pedCoord.x, pedCoord.y, pedCoord.z, TriggerLocation.x, TriggerLocation.y, TriggerLocation.z, true)
+     CreateThread(function()
+          while distance > DinstanceToTrigger do
+               local pedCoord = GetEntityCoords(plyped)
+               distance = GetDistanceBetweenCoords(pedCoord.x, pedCoord.y, pedCoord.z, TriggerLocation.x, TriggerLocation.y, TriggerLocation.z, true)
+               Wait(1000)
+          end
+          finished = true
+     end)
+
+     -- wait for player at delivery coord
+     while finished == false do
+          DrawMarker(2, TriggerLocation.x, TriggerLocation.y, TriggerLocation.z + 2, 0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 1.0, 1.0,
+               1.0, 255, 128, 0, 50, false, true, 2, nil, nil, false)
+          Wait(0)
+     end
+
+     local vehiclePlate = "SWK" .. math.random(1, 9) .. math.random(1, 9) .. math.random(1, 9)
+     model = GetHashKey(model)
+     RequestModel(model)
+     while not HasModelLoaded(model) do
+          Wait(10)
+     end
+
+     local veh = CreateVehicle(model, Coord.x, Coord.y, Coord.z, Coord.w, true, false)
+     local netid = NetworkGetNetworkIdFromEntity(veh)
+     SetVehicleHasBeenOwnedByPlayer(veh, true)
+
+     SetNetworkIdCanMigrate(netid, true)
+     SetVehicleNeedsToBeHotwired(veh, false)
+     SetVehRadioStation(veh, "OFF")
+
+     SetVehicleNumberPlateText(veh, vehiclePlate)
+     -- TaskWarpPedIntoVehicle(plyped, veh, -1)
+     -- exports['LegacyFuel']:SetFuel(veh, math.random(80, 90))
+     SetVehicleEngineOn(veh, true, true)
+     TriggerEvent('keep-oilrig:menu:AddToTrunk', vehiclePlate, items)
+     SetModelAsNoLongerNeeded(model)
+end
+
+AddEventHandler('keep-oilrig:menu:AddToTrunk', function(vehiclePlate, items)
+     TriggerServerEvent('inventory:server:addTrunkItems', vehiclePlate, items)
+end)
 
 -- Events
 AddEventHandler('keep-oilrig:client_lib:PumpOilToStorage', function(data)
@@ -154,7 +204,14 @@ end)
 
 
 AddEventHandler('keep-oilrig:client_lib:Callback', function(data)
-     QBCore.Functions.TriggerCallback(data.eventName, function(result)
-          print(result)
-     end, data.content)
+     QBCore.Functions.TriggerCallback(data.eventName, function(items)
+          if items == false then
+               return
+          end
+          local SpawnLocation = Config.Delivery.SpawnLocation
+          local TriggerLocation = Config.Delivery.TriggerLocation
+          local DinstanceToTrigger = Config.Delivery.DinstanceToTrigger
+          local model = Config.Delivery.vehicleModel
+          MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, items)
+     end, data)
 end)

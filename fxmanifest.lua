@@ -14,7 +14,12 @@ client_scripts {
      'client/client_lib/menu/storage_menu.lua',
 }
 
-server_script { '@oxmysql/lib/MySQL.lua', 'server/server_main.lua', 'server/server_lib/server_lib_entry.lua' }
+server_script {
+     '@oxmysql/lib/MySQL.lua',
+     'server/server_main.lua',
+     'server/server_lib/server_lib_entry.lua',
+     'server/server_lib/Server_GlobalScirptData.lua'
+}
 
 -- dependency 'oxmysql'
 

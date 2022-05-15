@@ -1,18 +1,3 @@
-function GetAllOilrigsFromDatabase(option)
-     if option == 'update' then
-     elseif option == 'init' then
-          MySQL.Async.fetchAll('SELECT * FROM oilrig_position', {}, function(oilrigs)
-               Oilrigs:initPhaseTwo(oilrigs)
-          end)
-     end
-end
-
-function GetSingleValueByHash(oilrig_hash)
-     MySQL.Async.fetch('SELECT * FROM oilrig_position WHERE oilrig_hash = ?', { oilrig_hash }, function(res)
-
-     end)
-end
-
 function GeneralInsert(options)
      local sqlQuery = 'INSERT INTO oilrig_position (citizenid,name,oilrig_hash,position,metadata,state) VALUES (?,?,?,?,?,?)'
      local QueryData = {
@@ -34,11 +19,12 @@ function GeneralUpdate(options)
      local QueryData = {}
 
      if options.type == 'metadata' then
-          sqlQuery = 'UPDATE oilrig_position SET metadata = ? WHERE citizenid = ? AND oilrig_hash = ?'
+          sqlQuery = 'UPDATE oilrig_position SET metadata = ? WHERE citizenid = ? AND oilrig_hash = ? AND metadata <> ?'
           QueryData = {
                json.encode(options.metadata),
                options.citizenid,
-               options.oilrig_hash
+               options.oilrig_hash,
+               json.encode(options.metadata)
           }
      elseif options.type == 'name' then
           -- rename
@@ -116,3 +102,18 @@ function deepcopy(orig, copies)
      end
      return copy
 end
+
+local rest = {
+     description = 'Oil Barrel',
+     unique = true,
+     name = 'oilbarell',
+     image = 'oilBarrel.png',
+     weight = 1000,
+     slot = 1,
+     label = 'Oil barell',
+     info = {
+          gal = 169.85
+     },
+     amount = 1,
+     shouldClose = true,
+     useable = false, type = 'item' }
