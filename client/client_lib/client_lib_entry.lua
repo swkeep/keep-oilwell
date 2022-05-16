@@ -173,7 +173,7 @@ function createEntityQbTarget()
                     options = {
                          {
                               type = "client",
-                              event = "keep-oilrig:client_lib:ShowStorage",
+                              event = "keep-oilrig:storage_menu:ShowStorage",
                               icon = "fa-solid fa-arrows-spin",
                               label = "View Storage",
                               canInteract = function(entity)
@@ -198,9 +198,47 @@ function createEntityQbTarget()
                     options = {
                          {
                               type = "client",
-                              event = "keep-oilrig:client_lib:ShowCDU",
+                              event = "keep-oilrig:CDU_menu:ShowCDU",
                               icon = "fa-solid fa-gear",
                               label = "Open CDU panel",
+                              canInteract = function(entity)
+                                   return true
+                              end,
+                         },
+                    },
+                    distance = 2.5
+               })
+          elseif key == 'blender' then
+               exports['qb-target']:AddEntityZone("oil-blender" .. entity, entity, {
+                    name = "oil-blender" .. entity,
+                    heading = GetEntityHeading(entity),
+                    debugPoly = true,
+               }, {
+                    options = {
+                         {
+                              type = "client",
+                              event = "keep-oilrig:blender_menu:ShowBlender",
+                              icon = "fa-solid fa-gear",
+                              label = "Open blender panel",
+                              canInteract = function(entity)
+                                   return true
+                              end,
+                         },
+                    },
+                    distance = 2.5
+               })
+          elseif key == 'barrel_withdraw' then
+               exports['qb-target']:AddEntityZone("oil-barrel_withdraw" .. entity, entity, {
+                    name = "oil-barrel_withdraw" .. entity,
+                    heading = GetEntityHeading(entity),
+                    debugPoly = true,
+               }, {
+                    options = {
+                         {
+                              type = "client",
+                              event = "",
+                              icon = "fa-solid fa-boxes-packing",
+                              label = "Send to invnetory",
                               canInteract = function(entity)
                                    return true
                               end,

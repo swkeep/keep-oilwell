@@ -1,12 +1,16 @@
-AddEventHandler('keep-oilrig:client_lib:ShowCDU', function()
-     showCDU(data)
-end)
+local QBCore = exports['qb-core']:GetCoreObject()
 
-function showCDU(data)
-     local header = "Crude oil distillation unit (" .. 'inactive' .. ')'
+local function showCDU(data)
+     local state = ''
+     if data.metadata.state == true then
+          state = 'Active'
+     else
+          state = 'inactive'
+     end
+     local header = "Crude oil distillation unit (" .. state .. ')'
      -- header
-     local CDU_Temperature = 50
-     local CDU_Gal = 250
+     local CDU_Temperature = data.metadata.temp
+     local CDU_Gal = data.metadata.oil_storage
      local openMenu = {
           {
                header = header,
@@ -18,29 +22,29 @@ function showCDU(data)
                txt = "" .. CDU_Temperature .. " °C",
           },
           {
-               header = 'Curde Oil',
+               header = 'Curde Oil inside CDU',
                icon = 'fa-solid fa-oil-can',
                txt = CDU_Gal .. " Gallons",
           },
           {
-               header = 'Pump Curde Oil',
+               header = 'Pump Curde Oil to CDU',
                icon = 'fa-solid fa-arrows-spin',
                params = {
-                    event = "keep-oilrig:client_lib:StorageActions"
+                    event = "keep-oilrig:CDU_menu:pumpCrudeOil_to_CDU"
                }
           },
           {
                header = 'Change Temperature',
                icon = 'fa-solid fa-temperature-arrow-up',
                params = {
-                    event = "keep-oilrig:client_lib:StorageActions"
+                    event = "keep-oilrig:CDU_menu:set_CDU_temp"
                }
           },
           {
                header = 'Toggle CDU',
                icon = 'fa-solid fa-sliders',
                params = {
-                    event = "fa-solid fa-sliders"
+                    event = "keep-oilrig:CDU_menu:switchPower_of_CDU"
                }
           },
           {
@@ -53,3 +57,59 @@ function showCDU(data)
      }
      exports['qb-menu']:openMenu(openMenu)
 end
+
+AddEventHandler('keep-oilrig:CDU_menu:ShowCDU', function()
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:get_CDU_Data', function(result)
+          showCDU(result)
+     end)
+end)
+
+AddEventHandler('keep-oilrig:CDU_menu:switchPower_of_CDU', function()
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:switchPower_of_CDU', function(result)
+          showCDU(result)
+     end)
+end)
+
+AddEventHandler('keep-oilrig:CDU_menu:set_CDU_temp', function()
+     local inputData = exports['qb-input']:ShowInput({
+          header = "CDU Temperature",
+          submitText = "Assign new temperature",
+          inputs = { {
+               type = 'number',
+               isRequired = true,
+               name = 'temp',
+               text = "Enter new temperature"
+          },
+          }
+     })
+     if inputData then
+          if not inputData.temp then
+               return
+          end
+          QBCore.Functions.TriggerCallback('keep-oilrig:server:set_CDU_temp', function(result)
+               showCDU(result)
+          end, inputData)
+     end
+end)
+
+AddEventHandler('keep-oilrig:CDU_menu:pumpCrudeOil_to_CDU', function()
+     local inputData = exports['qb-input']:ShowInput({
+          header = "Pump crude oil to CDU",
+          submitText = "Enter",
+          inputs = { {
+               type = 'number',
+               isRequired = true,
+               name = 'amount',
+               text = "Enter Value"
+          },
+          }
+     })
+     if inputData then
+          if not inputData.amount then
+               return
+          end
+          QBCore.Functions.TriggerCallback('keep-oilrig:server:pumpCrudeOil_to_CDU', function(result)
+               showCDU(result)
+          end, inputData)
+     end
+end)

@@ -12,8 +12,20 @@ Config.locations = {
           position = vector4(1490.81, -1846.19, 69.7, 0),
           model = 'v_ind_cm_electricbox',
      },
+     blender = {
+          position = vector4(1498.41, -1848.11, 69.5, 230.33),
+          model = 'prop_storagetank_01',
+     },
+     barrel_withdraw = {
+          position = vector4(1470.83, -1871.23, 70.8, 338.01),
+          model = 'imp_prop_groupbarrel_03',
+     }
 }
+-- prop_barrel_exp_01a.yft ron
+-- prop_barrel_exp_01b.yft glob oil
 
+-- prop_oil_wellhead_01
+-- prop_oilcan_02a
 Config.Delivery = {
      TriggerLocation = vector3(1475.82, -1855.29, 72.05),
      SpawnLocation = vector4(1495.04, -1850.61, 71.2, 109.22),

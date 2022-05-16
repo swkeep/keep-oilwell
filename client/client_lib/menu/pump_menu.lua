@@ -1,4 +1,6 @@
-function showInfo(data)
+local QBCore = exports['qb-core']:GetCoreObject()
+
+local function showInfo(data)
      local selected_oilrig = data.metadata
      local header = "Name: " .. data.name
      local partInfoString = "Belt: " .. selected_oilrig.part_info.belt .. " Polish: " .. selected_oilrig.part_info.polish .. " Clutch: " .. selected_oilrig.part_info.clutch
@@ -38,7 +40,7 @@ function showInfo(data)
                header = 'Pump oil to storage',
                icon = 'fa-solid fa-arrows-spin',
                params = {
-                    event = 'keep-oilrig:client_lib:PumpOilToStorage',
+                    event = 'keep-oilrig:storage_menu:PumpOilToStorage',
                     args = {
                          oilrig_hash = data.oilrig_hash
                     }
@@ -56,7 +58,11 @@ function showInfo(data)
 end
 
 -- Events
+AddEventHandler('keep-oilrig:storage_menu:PumpOilToStorage', function(data)
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:PumpOilToStorageCallback', function(result)
 
+     end, data.oilrig_hash)
+end)
 AddEventHandler('keep-oilrig:client:viewPumpInfo', function(qbtarget)
      -- ask for updated data
      OilRigs:startUpdate(function()

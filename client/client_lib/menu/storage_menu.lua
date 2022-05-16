@@ -1,6 +1,6 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-function showStorage(storage_data)
+local function showStorage(storage_data)
      local header = storage_data.name
      -- header
      local openMenu = {
@@ -13,7 +13,7 @@ function showStorage(storage_data)
                icon = 'fa-solid fa-oil-can',
                txt = "" .. storage_data.metadata.crudeOil .. " /gal",
                params = {
-                    event = 'keep-oilrig:client_lib:StorageActions',
+                    event = 'keep-oilrig:storage_menu:StorageActions',
                     args = {
                          type = 'crudeOil',
                          storage_data = storage_data
@@ -25,7 +25,7 @@ function showStorage(storage_data)
                icon = 'fa-solid fa-oil-can',
                txt = "" .. storage_data.metadata.gasoline .. " /gal",
                params = {
-                    event = 'keep-oilrig:client_lib:StorageActions',
+                    event = 'keep-oilrig:storage_menu:StorageActions',
                     args = {
                          type = 'gasoline',
                          storage_data = storage_data
@@ -43,7 +43,7 @@ function showStorage(storage_data)
      exports['qb-menu']:openMenu(openMenu)
 end
 
-function showStorageActions(data)
+local function showStorageActions(data)
      local header = "Actions " .. data.type
      local storage_data = data.storage_data
      -- header
@@ -57,7 +57,7 @@ function showStorageActions(data)
                icon = 'fa-solid fa-truck-ramp-box',
                txt = "",
                params = {
-                    event = 'keep-oilrig:client_lib:StorageWithdraw',
+                    event = 'keep-oilrig:storage_menu:StorageWithdraw',
                     args = data
                }
           },
@@ -72,14 +72,14 @@ function showStorageActions(data)
                header = 'Back',
                icon = 'fa-solid fa-angle-left',
                params = {
-                    event = "keep-oilrig:client_lib:ShowStorage"
+                    event = "keep-oilrig:storage_menu:ShowStorage"
                }
           }
      }
      exports['qb-menu']:openMenu(openMenu)
 end
 
-function showStorageWithdraw(data)
+local function showStorageWithdraw(data)
      local header = "Storage withdraw (" .. data.type .. ")"
      local currentWithdrawTarget = data.storage_data.metadata[data.type] -- oil or gas
      -- header
@@ -98,7 +98,7 @@ function showStorageWithdraw(data)
                icon = 'fa-solid fa-bottle-droplet',
                txt = "deposit: $500   Capacity: 5000 /gal",
                params = {
-                    event = 'keep-oilrig:client_lib:Callback',
+                    event = 'keep-oilrig:storage_menu:Callback',
                     args = {
                          eventName = 'keep-oilrig:server:WithdrawWithBarrel',
                          citizenid = data.storage_data.citizenid,
@@ -111,7 +111,7 @@ function showStorageWithdraw(data)
                icon = 'fa-solid fa-truck-droplet',
                txt = "deposit: $25,000k   Capacity: 100,000 /gal",
                params = {
-                    event = 'keep-oilrig:client_lib:Callback',
+                    event = 'keep-oilrig:storage_menu:Callback',
                     args = {
                          eventName = 'keep-oilrig:server:WithdrawLoadInTruck',
                          citizenid = data.storage_data.citizenid,
@@ -123,7 +123,7 @@ function showStorageWithdraw(data)
                header = 'Back',
                icon = 'fa-solid fa-angle-left',
                params = {
-                    event = "keep-oilrig:client_lib:StorageActions",
+                    event = "keep-oilrig:storage_menu:StorageActions",
                     args = data
                }
           }
@@ -180,38 +180,35 @@ AddEventHandler('keep-oilrig:menu:AddToTrunk', function(vehiclePlate, items)
 end)
 
 -- Events
-AddEventHandler('keep-oilrig:client_lib:PumpOilToStorage', function(data)
-     QBCore.Functions.TriggerCallback('keep-oilrig:client_lib:PumpOilToStorageCallback', function(result)
 
-     end, data.oilrig_hash)
-end)
-
-AddEventHandler('keep-oilrig:client_lib:ShowStorage', function(data)
+AddEventHandler('keep-oilrig:storage_menu:ShowStorage', function(data)
      QBCore.Functions.TriggerCallback('keep-oilrig:server:getStorageData', function(result)
           showStorage(result)
      end)
 end)
 
-
-AddEventHandler('keep-oilrig:client_lib:StorageActions', function(storage_data)
+AddEventHandler('keep-oilrig:storage_menu:StorageActions', function(storage_data)
      showStorageActions(storage_data)
 end)
 
-
-AddEventHandler('keep-oilrig:client_lib:StorageWithdraw', function(data)
+AddEventHandler('keep-oilrig:storage_menu:StorageWithdraw', function(data)
      showStorageWithdraw(data)
 end)
 
-
-AddEventHandler('keep-oilrig:client_lib:Callback', function(data)
-     QBCore.Functions.TriggerCallback(data.eventName, function(items)
-          if items == false then
+AddEventHandler('keep-oilrig:storage_menu:Callback', function(data)
+     QBCore.Functions.TriggerCallback(data.eventName, function(res)
+          if res == false then
                return
           end
+          if data.eventName ~= 'keep-oilrig:server:WithdrawLoadInTruck' then
+               return
+          end
+
+          -- res >> table of items
           local SpawnLocation = Config.Delivery.SpawnLocation
           local TriggerLocation = Config.Delivery.TriggerLocation
           local DinstanceToTrigger = Config.Delivery.DinstanceToTrigger
           local model = Config.Delivery.vehicleModel
-          MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, items)
+          MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, res)
      end, data)
 end)

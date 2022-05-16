@@ -40,7 +40,12 @@ GlobalScirptData = {
                {
                     id = 0,
                     citizenid = '',
-                    metadata = {},
+                    metadata = {
+                         temp = 0.0,
+                         req_temp = 0.0,
+                         state = false,
+                         oil_storage = 0.0,
+                    },
                }
           },
           oilrig_blender = {
@@ -72,15 +77,15 @@ function GlobalScirptData:initPhaseTwo(o)
                self:newDevice(value, 'oilrig_storage')
           end
           -- oilrig_cdu
-          -- for key, value in pairs(o.oilrig_cdu) do
-          --      self:add(value)
-          -- end
+          for key, value in pairs(o.oilrig_cdu) do
+               self:newDevice(value, 'oilrig_cdu')
+          end
           -- -- oilrig_blender
           -- for key, value in pairs(o.oilrig_blender) do
           --      self:add(value)
           -- end
           self:saveThread()
-          metadataTracker(self.oil_well)
+          createMetadataTrackers(self.oil_well, self.devices)
      end)
 end
 
@@ -104,6 +109,7 @@ function GlobalScirptData:newDevice(device, Type)
           device.metadata = json.decode(device.metadata)
           self.devices.oilrig_storage[device.id] = device
      elseif Type == 'oilrig_cdu' then
+          device.metadata = json.decode(device.metadata)
           self.devices.oilrig_cdu[device.id] = device
      end
 end
@@ -129,9 +135,18 @@ function GlobalScirptData:saveThread()
                               metadata = value.metadata
                          })
                     end
+                    -- save storage data
                     for id, storage in pairs(self.devices.oilrig_storage) do
                          GeneralUpdate_2({
                               type = 'oilrig_storage',
+                              citizenid = storage.citizenid,
+                              metadata = storage.metadata
+                         })
+                    end
+                    -- save CDU data
+                    for id, storage in pairs(self.devices.oilrig_cdu) do
+                         GeneralUpdate_2({
+                              type = 'oilrig_cdu',
                               citizenid = storage.citizenid,
                               metadata = storage.metadata
                          })
@@ -186,6 +201,92 @@ end
 -- Data Manipulations
 ----------------------
 
+function createMetadataTrackers(oil_wells, devices)
+     CreateThread(function()
+          while true do
+               for key, oil_well in pairs(oil_wells) do
+                    DataManipulations_metadata_oil_well(oil_well)
+               end
+               for key, CDU in pairs(devices.oilrig_cdu) do
+                    DataManipulations_metadata_CDU(CDU)
+               end
+               Wait(1000)
+          end
+     end)
+end
+
+function DataManipulations_metadata_CDU(CDU)
+     if CDU.metadata.state == true then
+          -- increase temp until reach requestd temp
+          if CDU.metadata.req_temp > CDU.metadata.temp then
+               CDU.metadata.temp = CDU.metadata.temp + 15.0
+          elseif CDU.metadata.req_temp == CDU.metadata.temp then
+               CDU.metadata.temp = CDU.metadata.req_temp
+          end
+
+          -- oil_storage > 1.0 min buffer
+          -- CDU functions on current temp if we have something in oil_storage
+          if CDU.metadata.oil_storage > 1.0 then
+               -- get storage to export CDU products
+               local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', CDU.citizenid)
+
+               if CDU.metadata.temp < 20.0 and CDU.metadata.temp > 0.0 then
+                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
+               elseif CDU.metadata.temp < 150.0 and CDU.metadata.temp > 20.0 then
+                    -- Butane & Propane
+                    -- other gases
+               elseif CDU.metadata.temp < 200.0 and CDU.metadata.temp > 150.0 then
+                    -- Petrol
+               elseif CDU.metadata.temp < 300.0 and CDU.metadata.temp > 200.0 then
+                    -- Diesel
+                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
+                    storage.metadata.gasoline = storage.metadata.gasoline + 1.0
+               elseif CDU.metadata.temp < 370.0 and CDU.metadata.temp > 300.0 then
+                    -- Fuel Oil
+               elseif CDU.metadata.temp < 400.0 and CDU.metadata.temp > 370.0 then
+                    -- Lubricating oil, Parrafin Wax, Asphalt
+               end
+          end
+     else
+          if CDU.metadata.temp > 0 then
+               CDU.metadata.temp = CDU.metadata.temp - 15.0
+          else
+               CDU.metadata.temp = 0.0
+          end
+     end
+end
+
+function DataManipulations_metadata_oil_well(oil_well)
+     local pumpOverHeat = 327
+
+     if oil_well.metadata.speed ~= 0 then
+          oil_well.metadata.duration = oil_well.metadata.duration + 1
+          oil_well.metadata.secduration = oil_well.metadata.duration
+          if oil_well.metadata.temp ~= nil and pumpOverHeat >= oil_well.metadata.temp then
+               oil_well.metadata.temp = tempGrowth(oil_well.metadata.temp, oil_well.metadata.speed, 'increase', pumpOverHeat)
+               oil_well.metadata.temp = Round(oil_well.metadata.temp, 2)
+          else
+               oil_well.metadata.temp = pumpOverHeat
+          end
+          if oil_well.metadata.temp > 50 and oil_well.metadata.temp < (pumpOverHeat - 25) and oil_well.metadata.oil_storage <= 300 then
+               oil_well.metadata.oil_storage = oil_well.metadata.oil_storage + (0.1 * (oil_well.metadata.speed / 50))
+          end
+     else
+          -- reset duration
+          if oil_well.metadata.duration ~= 0 then
+               oil_well.metadata.duration = 0
+          end
+          -- start cooling procces
+          if oil_well.metadata.secduration > 0 then
+               oil_well.metadata.secduration = oil_well.metadata.secduration - 1
+               oil_well.metadata.temp = tempGrowth(oil_well.metadata.temp, oil_well.metadata.speed, 'decrease', pumpOverHeat)
+               oil_well.metadata.temp = Round(oil_well.metadata.temp, 2)
+          elseif oil_well.metadata.secduration == 0 then
+               oil_well.metadata.temp = 0
+          end
+     end
+end
+
 -- Storage
 SendOilToStorage = function(oilrig, player)
      local citizenid = player.PlayerData.citizenid
@@ -207,6 +308,7 @@ SendOilToStorage = function(oilrig, player)
 end
 
 InitStorage = function(o)
+     print_table(o)
      local sqlQuery = 'INSERT INTO oilrig_storage (citizenid,name,metadata) VALUES (?,?,?)'
      local QueryData = {
           o.citizenid,
@@ -234,6 +336,38 @@ InitStorage = function(o)
 end
 -- End Storage
 
+-- CDU
+Init_CDU = function(o)
+     local sqlQuery = 'INSERT INTO oilrig_cdu (citizenid,metadata) VALUES (?,?)'
+     local QueryData = {
+          o.citizenid,
+          json.encode({
+               temp = 0.0,
+               req_temp = 0.0,
+               state = false,
+               oil_storage = 0.0
+          }),
+     }
+     local res = MySQL.Sync.insert(sqlQuery, QueryData)
+     if res ~= 0 then
+          -- inject into runtime
+          GlobalScirptData:newDevice({
+               id = res,
+               citizenid = o.citizenid,
+               metadata = json.encode({
+                    temp = 0.0,
+                    req_temp = 0.0,
+                    state = false,
+                    oil_storage = 0.0
+               })
+          }, 'oilrig_cdu')
+          return true
+     end
+     return false
+end
+
+-- End CDU
+
 --------------------
 -- DATABASE WRAPPER
 --------------------
@@ -257,8 +391,8 @@ function GeneralUpdate_2(options)
      local sqlQuery = ''
      local QueryData = {}
 
-     if options.type == 'oilrig_storage' then
-          sqlQuery = 'UPDATE oilrig_storage SET metadata = ? WHERE citizenid = ? AND metadata <> ?'
+     if options.type == 'oilrig_storage' or options.type == 'oilrig_cdu' then
+          sqlQuery = 'UPDATE ' .. options.type .. ' SET metadata = ? WHERE citizenid = ? AND metadata <> ?'
           QueryData = {
                json.encode(options.metadata),
                options.citizenid,

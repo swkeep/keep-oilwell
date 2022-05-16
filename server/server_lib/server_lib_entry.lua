@@ -117,3 +117,25 @@ local rest = {
      amount = 1,
      shouldClose = true,
      useable = false, type = 'item' }
+
+function tempGrowth(tmp, speed, Type, max)
+     if tmp == nil then
+          return 0
+     end
+     if Type == 'increase' then
+          if tmp >= 0 and tmp < (max / 4) then
+               tmp = tmp + (1 * speed / 20)
+          elseif tmp >= (max / 4) and tmp < max then
+               tmp = tmp + (1 * speed / 75)
+          else
+               tmp = max
+          end
+     else
+          if tmp > 0 then
+               tmp = tmp - 10
+          else
+               tmp = 0
+          end
+     end
+     return tmp
+end

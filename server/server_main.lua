@@ -15,44 +15,7 @@ end)
 --          Update / server Side
 -- ==========================================
 
-function metadataTracker(oilrigs)
-     local pumpOverHeat = 327
-     CreateThread(function()
-          while true do
-               for key, value in pairs(oilrigs) do
-                    if value.metadata.speed ~= 0 then
-                         value.metadata.duration = value.metadata.duration + 1
-                         value.metadata.secduration = value.metadata.duration
-                         if value.metadata.temp ~= nil and pumpOverHeat >= value.metadata.temp then
-                              value.metadata.temp = tempGrowth(value.metadata.temp, value.metadata.speed, 'increase', pumpOverHeat)
-                              value.metadata.temp = Round(value.metadata.temp, 2)
-                         else
-                              value.metadata.temp = pumpOverHeat
-                         end
-                         if value.metadata.temp > 50 and value.metadata.temp < (pumpOverHeat - 25) and value.metadata.oil_storage <= 300 then
-                              value.metadata.oil_storage = value.metadata.oil_storage + (0.1 * (value.metadata.speed / 50))
-                         end
-                    else
-                         -- reset duration
-                         if value.metadata.duration ~= 0 then
-                              value.metadata.duration = 0
-                         end
-                         -- start cooling procces
-                         if value.metadata.secduration > 0 then
-                              value.metadata.secduration = value.metadata.secduration - 1
-                              value.metadata.temp = tempGrowth(value.metadata.temp, value.metadata.speed, 'decrease', pumpOverHeat)
-                              value.metadata.temp = Round(value.metadata.temp, 2)
-                         elseif value.metadata.secduration == 0 then
-                              value.metadata.temp = 0
-                         end
-                    end
-               end
-               Wait(1000)
-          end
-     end)
-end
-
-QBCore.Functions.CreateCallback('keep-oilrig:client_lib:PumpOilToStorageCallback', function(source, cb, data)
+QBCore.Functions.CreateCallback('keep-oilrig:server:PumpOilToStorageCallback', function(source, cb, data)
      local player = QBCore.Functions.GetPlayer(source)
      if player == nil then
           TriggerClientEvent('QBCore:Notify', source, "failed to find player!")
@@ -146,28 +109,6 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawLoadInTruck', functi
      end
 end)
 
-function tempGrowth(tmp, speed, Type, max)
-     if tmp == nil then
-          return 0
-     end
-     if Type == 'increase' then
-          if tmp >= 0 and tmp < (max / 4) then
-               tmp = tmp + (1 * speed / 20)
-          elseif tmp >= (max / 4) and tmp < max then
-               tmp = tmp + (1 * speed / 75)
-          else
-               tmp = max
-          end
-     else
-          if tmp > 0 then
-               tmp = tmp - 10
-          else
-               tmp = 0
-          end
-     end
-     return tmp
-end
-
 RegisterNetEvent('keep-oilrig:server:updateSpeed', function(inputData, id)
      local player = QBCore.Functions.GetPlayer(source)
      if player ~= nil then
@@ -182,6 +123,64 @@ RegisterNetEvent('keep-oilrig:server:updateSpeed', function(inputData, id)
                TriggerClientEvent('QBCore:Notify', source, "You are not owner of oil pump!")
           end
      end
+end)
+
+QBCore.Functions.CreateCallback('keep-oilrig:server:get_CDU_Data', function(source, cb)
+     local player = QBCore.Functions.GetPlayer(source)
+     local citizenid = player.PlayerData.citizenid
+     -- #TODO CDU
+     local CDU = GlobalScirptData:getDeviceByCitizenId('oilrig_cdu', citizenid)
+     if CDU == false then
+          Init_CDU({
+               citizenid = citizenid,
+          })
+     end
+
+     -- callback must return CDU's object reason ==> reopen menu with new values
+     cb(CDU)
+end)
+
+QBCore.Functions.CreateCallback('keep-oilrig:server:set_CDU_temp', function(source, cb, inputData)
+     if type(inputData.temp) == "string" then
+          inputData.temp = tonumber(inputData.temp)
+     end
+     local player = QBCore.Functions.GetPlayer(source)
+     local citizenid = player.PlayerData.citizenid
+     local CDU = GlobalScirptData:getDeviceByCitizenId('oilrig_cdu', citizenid)
+     CDU.metadata.req_temp = inputData.temp
+     -- callback must return CDU's object reason ==> reopen menu with new values
+     cb(CDU)
+end)
+
+QBCore.Functions.CreateCallback('keep-oilrig:server:switchPower_of_CDU', function(source, cb)
+     local player = QBCore.Functions.GetPlayer(source)
+     local citizenid = player.PlayerData.citizenid
+     local CDU = GlobalScirptData:getDeviceByCitizenId('oilrig_cdu', citizenid)
+     if CDU.metadata.state == false then
+          CDU.metadata.state = true
+     else
+          CDU.metadata.state = false
+     end
+
+     -- callback must return CDU's object reason ==> reopen menu with new values
+     cb(CDU)
+end)
+
+QBCore.Functions.CreateCallback('keep-oilrig:server:pumpCrudeOil_to_CDU', function(source, cb, inputData)
+     if type(inputData.amount) == "string" then
+          inputData.amount = tonumber(inputData.amount)
+     end
+     local player = QBCore.Functions.GetPlayer(source)
+     local citizenid = player.PlayerData.citizenid
+     local CDU = GlobalScirptData:getDeviceByCitizenId('oilrig_cdu', citizenid)
+     local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+
+     if storage.metadata.crudeOil >= inputData.amount then
+          storage.metadata.crudeOil = storage.metadata.crudeOil - inputData.amount
+          CDU.metadata.oil_storage = CDU.metadata.oil_storage + inputData.amount
+     end
+     -- callback must return CDU's object reason ==> reopen menu with new values
+     cb(CDU)
 end)
 
 -- =======================================

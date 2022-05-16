@@ -12,6 +12,7 @@ client_scripts {
      'client/client_lib/menu/edit_menu.lua',
      'client/client_lib/menu/pump_menu.lua',
      'client/client_lib/menu/storage_menu.lua',
+     'client/client_lib/menu/blender_menu.lua'
 }
 
 server_script {
