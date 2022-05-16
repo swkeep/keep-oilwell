@@ -11,38 +11,6 @@ function GeneralInsert(options)
      MySQL.Async.insert(sqlQuery, QueryData)
 end
 
-function GeneralUpdate(options)
-     if options == nil then
-          return
-     end
-     local sqlQuery = ''
-     local QueryData = {}
-
-     if options.type == 'metadata' then
-          sqlQuery = 'UPDATE oilrig_position SET metadata = ? WHERE citizenid = ? AND oilrig_hash = ? AND metadata <> ?'
-          QueryData = {
-               json.encode(options.metadata),
-               options.citizenid,
-               options.oilrig_hash,
-               json.encode(options.metadata)
-          }
-     elseif options.type == 'name' then
-          -- rename
-
-     elseif options.type == 'state' then
-          -- toggle on/off
-
-     elseif options.type == 'position' then
-          -- rotate or change position
-
-     end
-     if sqlQuery == nil or next(QueryData) == nil then
-          return false
-     end
-     MySQL.Async.execute(sqlQuery, QueryData, function(e)
-     end)
-end
-
 function isTableChanged(oldTable, newTable)
      if equals(oldTable, newTable, true) == false then
           return true

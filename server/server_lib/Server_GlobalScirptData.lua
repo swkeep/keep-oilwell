@@ -52,7 +52,17 @@ GlobalScirptData = {
                {
                     id = 0,
                     citizenid = '',
-                    metadata = {},
+                    metadata = {
+                         heavy_naphtha = 0.0,
+                         light_naphtha = 0.0,
+                         other_gases = 0.0,
+                         state = false,
+                         recipe = {
+                              heavy_naphtha = 0.0,
+                              light_naphtha = 0.0,
+                              other_gases = 0.0,
+                         }
+                    },
                }
           },
      }
@@ -81,9 +91,9 @@ function GlobalScirptData:initPhaseTwo(o)
                self:newDevice(value, 'oilrig_cdu')
           end
           -- -- oilrig_blender
-          -- for key, value in pairs(o.oilrig_blender) do
-          --      self:add(value)
-          -- end
+          for key, value in pairs(o.oilrig_blender) do
+               self:newDevice(value, 'oilrig_blender')
+          end
           self:saveThread()
           createMetadataTrackers(self.oil_well, self.devices)
      end)
@@ -111,6 +121,10 @@ function GlobalScirptData:newDevice(device, Type)
      elseif Type == 'oilrig_cdu' then
           device.metadata = json.decode(device.metadata)
           self.devices.oilrig_cdu[device.id] = device
+     elseif Type == 'oilrig_blender' then
+          device.metadata = json.decode(device.metadata)
+          self.devices.oilrig_blender[device.id] = device
+
      end
 end
 
@@ -128,8 +142,8 @@ function GlobalScirptData:saveThread()
                     self.oil_well,
                }) == true then
                     for key, value in pairs(self.oil_well) do
-                         GeneralUpdate({
-                              type = 'metadata',
+                         GeneralUpdate_2({
+                              type = 'oilrig_oilwell',
                               citizenid = value.citizenid,
                               oilrig_hash = value.oilrig_hash,
                               metadata = value.metadata
@@ -149,6 +163,14 @@ function GlobalScirptData:saveThread()
                               type = 'oilrig_cdu',
                               citizenid = storage.citizenid,
                               metadata = storage.metadata
+                         })
+                    end
+                    -- save blender data
+                    for id, blender in pairs(self.devices.oilrig_blender) do
+                         GeneralUpdate_2({
+                              type = 'oilrig_blender',
+                              citizenid = blender.citizenid,
+                              metadata = blender.metadata
                          })
                     end
                end
@@ -210,9 +232,60 @@ function createMetadataTrackers(oil_wells, devices)
                for key, CDU in pairs(devices.oilrig_cdu) do
                     DataManipulations_metadata_CDU(CDU)
                end
+               for key, blender in pairs(devices.oilrig_blender) do
+                    DataManipulations_metadata_blender(blender)
+               end
                Wait(1000)
           end
      end)
+end
+
+function DataManipulations_metadata_blender(blender)
+     if blender.metadata.state == true then
+          local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', blender.citizenid)
+
+          if blender.metadata.heavy_naphtha <= 0.0 then
+               blender.metadata.heavy_naphtha = 0.0
+               blender.metadata.state = false
+               return
+          end
+
+          if blender.metadata.light_naphtha <= 0.0 then
+               blender.metadata.heavy_naphtha = 0.0
+               blender.metadata.state = false
+               return
+          end
+
+          if blender.metadata.other_gases <= 0.0 then
+               blender.metadata.other_gases = 0.0
+               blender.metadata.state = false
+               return
+          end
+          local res = 0
+
+          blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha - 0.5
+          blender.metadata.light_naphtha = blender.metadata.light_naphtha - 0.4
+          blender.metadata.other_gases = blender.metadata.other_gases - 0.9
+
+          if blender.metadata.recipe.heavy_naphtha ~= 28.0 then
+               res = res + 0.2
+          else
+               res = res + 0.1
+          end
+
+          if blender.metadata.recipe.light_naphtha ~= 36.0 then
+               res = res + 0.5
+          else
+               res = res + 0.4
+          end
+
+          if blender.metadata.recipe.other_gases ~= 36.0 then
+               res = res + 0.5
+          else
+               res = res + 0.4
+          end
+          storage.metadata.gasoline = storage.metadata.gasoline + res
+     end
 end
 
 function DataManipulations_metadata_CDU(CDU)
@@ -228,23 +301,31 @@ function DataManipulations_metadata_CDU(CDU)
           -- CDU functions on current temp if we have something in oil_storage
           if CDU.metadata.oil_storage > 1.0 then
                -- get storage to export CDU products
-               local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', CDU.citizenid)
+               local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', CDU.citizenid)
 
                if CDU.metadata.temp < 20.0 and CDU.metadata.temp > 0.0 then
                     CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
                elseif CDU.metadata.temp < 150.0 and CDU.metadata.temp > 20.0 then
                     -- Butane & Propane
                     -- other gases
+                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
+                    blender.metadata.other_gases = blender.metadata.other_gases + 0.75
                elseif CDU.metadata.temp < 200.0 and CDU.metadata.temp > 150.0 then
                     -- Petrol
+                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
+                    blender.metadata.light_naphtha = blender.metadata.light_naphtha + 1.5
                elseif CDU.metadata.temp < 300.0 and CDU.metadata.temp > 200.0 then
                     -- Diesel
                     CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-                    storage.metadata.gasoline = storage.metadata.gasoline + 1.0
+                    blender.metadata.light_naphtha = blender.metadata.light_naphtha + 1.0
                elseif CDU.metadata.temp < 370.0 and CDU.metadata.temp > 300.0 then
                     -- Fuel Oil
+                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
+                    blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha + 1.0
                elseif CDU.metadata.temp < 400.0 and CDU.metadata.temp > 370.0 then
                     -- Lubricating oil, Parrafin Wax, Asphalt
+                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
+                    blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha + 0.5
                end
           end
      else
@@ -368,6 +449,40 @@ end
 
 -- End CDU
 
+-- Blender
+
+Init_Blender = function(o)
+     local sqlQuery = 'INSERT INTO oilrig_blender (citizenid,metadata) VALUES (?,?)'
+     local metadata = {
+          heavy_naphtha = 0.0,
+          light_naphtha = 0.0,
+          other_gases = 0.0,
+          state = false,
+          recipe = {
+               heavy_naphtha = 0.0,
+               light_naphtha = 0.0,
+               other_gases = 0.0,
+          }
+     }
+     local QueryData = {
+          o.citizenid,
+          json.encode(metadata),
+     }
+     local res = MySQL.Sync.insert(sqlQuery, QueryData)
+     if res ~= 0 then
+          -- inject into runtime
+          GlobalScirptData:newDevice({
+               id = res,
+               citizenid = o.citizenid,
+               metadata = json.encode(metadata)
+          }, 'oilrig_blender')
+          return true
+     end
+     return false
+end
+
+-- End Blender
+
 --------------------
 -- DATABASE WRAPPER
 --------------------
@@ -391,11 +506,19 @@ function GeneralUpdate_2(options)
      local sqlQuery = ''
      local QueryData = {}
 
-     if options.type == 'oilrig_storage' or options.type == 'oilrig_cdu' then
+     if options.type == 'oilrig_storage' or options.type == 'oilrig_cdu' or options.type == 'oilrig_blender' then
           sqlQuery = 'UPDATE ' .. options.type .. ' SET metadata = ? WHERE citizenid = ? AND metadata <> ?'
           QueryData = {
                json.encode(options.metadata),
                options.citizenid,
+               json.encode(options.metadata)
+          }
+     elseif options.type == 'oilrig_oilwell' then
+          sqlQuery = 'UPDATE oilrig_position SET metadata = ? WHERE citizenid = ? AND oilrig_hash = ? AND metadata <> ?'
+          QueryData = {
+               json.encode(options.metadata),
+               options.citizenid,
+               options.oilrig_hash,
                json.encode(options.metadata)
           }
      end

@@ -152,10 +152,14 @@ function createEntityQbTarget()
           TriggerEvent('keep-oilrig:client:clearArea', position.coord)
           Wait(100)
           local entity = CreateObject(GetHashKey(value.model), position.coord.x, position.coord.y, position.coord.z, 0, 0, 0)
-          SetEntityAsMissionEntity(entity, 0, 0)
           while not DoesEntityExist(entity) do
                Wait(10)
           end
+          SetEntityInvincible(
+               entity,
+               true
+          )
+          SetEntityAsMissionEntity(entity, 0, 0)
           SetEntityHeading(entity, value.position.w)
           FreezeEntityPosition(entity, true)
           if key == 'storage' then

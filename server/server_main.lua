@@ -183,6 +183,44 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:pumpCrudeOil_to_CDU', functi
      cb(CDU)
 end)
 
+QBCore.Functions.CreateCallback('keep-oilrig:server:ShowBlender', function(source, cb)
+     local player = QBCore.Functions.GetPlayer(source)
+     local citizenid = player.PlayerData.citizenid
+     local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', citizenid)
+     if blender == false then
+          Init_Blender({
+               citizenid = citizenid
+          })
+          blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', citizenid)
+     end
+
+     cb(blender)
+end)
+
+QBCore.Functions.CreateCallback('keep-oilrig:server:toggle_blender', function(source, cb)
+     local player = QBCore.Functions.GetPlayer(source)
+     local citizenid = player.PlayerData.citizenid
+     local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', citizenid)
+     if blender.metadata.state == false then
+          blender.metadata.state = true
+     else
+          blender.metadata.state = false
+     end
+     cb(blender)
+end)
+
+QBCore.Functions.CreateCallback('keep-oilrig:server:recipe_blender', function(source, cb, inputData)
+     local player = QBCore.Functions.GetPlayer(source)
+     local citizenid = player.PlayerData.citizenid
+     local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', citizenid)
+
+     blender.metadata.recipe.heavy_naphtha = inputData.heavy_naphtha or blender.metadata.recipe.heavy_naphtha
+     blender.metadata.recipe.light_naphtha = inputData.light_naphtha or blender.metadata.recipe.light_naphtha
+     blender.metadata.recipe.other_gases = inputData.other_gases or blender.metadata.recipe.other_gases
+
+     cb(blender)
+end)
+
 -- =======================================
 --          Send Data / to Client
 -- =======================================

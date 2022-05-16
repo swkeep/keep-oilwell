@@ -19,6 +19,10 @@ Config.locations = {
      barrel_withdraw = {
           position = vector4(1470.83, -1871.23, 70.8, 338.01),
           model = 'imp_prop_groupbarrel_03',
+     },
+     oil_wellhead = {
+          position = vector4(1480.9, -1850.85, 70.1, 246.85),
+          model = 'prop_oil_wellhead_01',
      }
 }
 -- prop_barrel_exp_01a.yft ron
