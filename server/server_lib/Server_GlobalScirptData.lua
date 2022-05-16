@@ -241,98 +241,101 @@ function createMetadataTrackers(oil_wells, devices)
 end
 
 function DataManipulations_metadata_blender(blender)
-     if blender.metadata.state == true then
-          local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', blender.citizenid)
-
-          if blender.metadata.heavy_naphtha <= 0.0 then
-               blender.metadata.heavy_naphtha = 0.0
-               blender.metadata.state = false
-               return
-          end
-
-          if blender.metadata.light_naphtha <= 0.0 then
-               blender.metadata.heavy_naphtha = 0.0
-               blender.metadata.state = false
-               return
-          end
-
-          if blender.metadata.other_gases <= 0.0 then
-               blender.metadata.other_gases = 0.0
-               blender.metadata.state = false
-               return
-          end
-          local res = 0
-
-          blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha - 0.5
-          blender.metadata.light_naphtha = blender.metadata.light_naphtha - 0.4
-          blender.metadata.other_gases = blender.metadata.other_gases - 0.9
-
-          if blender.metadata.recipe.heavy_naphtha ~= 28.0 then
-               res = res + 0.2
-          else
-               res = res + 0.1
-          end
-
-          if blender.metadata.recipe.light_naphtha ~= 36.0 then
-               res = res + 0.5
-          else
-               res = res + 0.4
-          end
-
-          if blender.metadata.recipe.other_gases ~= 36.0 then
-               res = res + 0.5
-          else
-               res = res + 0.4
-          end
-          storage.metadata.gasoline = storage.metadata.gasoline + res
+     if blender.metadata.state == false then
+          return
      end
+
+     local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', blender.citizenid)
+
+     if blender.metadata.heavy_naphtha <= 0.0 then
+          blender.metadata.heavy_naphtha = 0.0
+          blender.metadata.state = false
+          return
+     end
+
+     if blender.metadata.light_naphtha <= 0.0 then
+          blender.metadata.heavy_naphtha = 0.0
+          blender.metadata.state = false
+          return
+     end
+
+     if blender.metadata.other_gases <= 0.0 then
+          blender.metadata.other_gases = 0.0
+          blender.metadata.state = false
+          return
+     end
+     local res = 0
+
+     blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha - 0.5
+     blender.metadata.light_naphtha = blender.metadata.light_naphtha - 0.4
+     blender.metadata.other_gases = blender.metadata.other_gases - 0.9
+
+     if blender.metadata.recipe.heavy_naphtha ~= 28.0 then
+          res = res + 0.2
+     else
+          res = res + 0.1
+     end
+
+     if blender.metadata.recipe.light_naphtha ~= 36.0 then
+          res = res + 0.5
+     else
+          res = res + 0.4
+     end
+
+     if blender.metadata.recipe.other_gases ~= 36.0 then
+          res = res + 0.5
+     else
+          res = res + 0.4
+     end
+     storage.metadata.gasoline = storage.metadata.gasoline + res
 end
 
 function DataManipulations_metadata_CDU(CDU)
-     if CDU.metadata.state == true then
-          -- increase temp until reach requestd temp
-          if CDU.metadata.req_temp > CDU.metadata.temp then
-               CDU.metadata.temp = CDU.metadata.temp + 15.0
-          elseif CDU.metadata.req_temp == CDU.metadata.temp then
-               CDU.metadata.temp = CDU.metadata.req_temp
-          end
-
-          -- oil_storage > 1.0 min buffer
-          -- CDU functions on current temp if we have something in oil_storage
-          if CDU.metadata.oil_storage > 1.0 then
-               -- get storage to export CDU products
-               local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', CDU.citizenid)
-
-               if CDU.metadata.temp < 20.0 and CDU.metadata.temp > 0.0 then
-                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
-               elseif CDU.metadata.temp < 150.0 and CDU.metadata.temp > 20.0 then
-                    -- Butane & Propane
-                    -- other gases
-                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
-                    blender.metadata.other_gases = blender.metadata.other_gases + 0.75
-               elseif CDU.metadata.temp < 200.0 and CDU.metadata.temp > 150.0 then
-                    -- Petrol
-                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-                    blender.metadata.light_naphtha = blender.metadata.light_naphtha + 1.5
-               elseif CDU.metadata.temp < 300.0 and CDU.metadata.temp > 200.0 then
-                    -- Diesel
-                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-                    blender.metadata.light_naphtha = blender.metadata.light_naphtha + 1.0
-               elseif CDU.metadata.temp < 370.0 and CDU.metadata.temp > 300.0 then
-                    -- Fuel Oil
-                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-                    blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha + 1.0
-               elseif CDU.metadata.temp < 400.0 and CDU.metadata.temp > 370.0 then
-                    -- Lubricating oil, Parrafin Wax, Asphalt
-                    CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-                    blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha + 0.5
-               end
-          end
-     else
+     if CDU.metadata.state == false then
           if CDU.metadata.temp > 0 then
                CDU.metadata.temp = CDU.metadata.temp - 15.0
           else
                CDU.metadata.temp = 0.0
+          end
+          return
+     end
+
+     -- increase temp until reach requestd temp
+     if CDU.metadata.req_temp > CDU.metadata.temp then
+          CDU.metadata.temp = CDU.metadata.temp + 15.0
+     elseif CDU.metadata.req_temp == CDU.metadata.temp then
+          CDU.metadata.temp = CDU.metadata.req_temp
+     end
+
+     -- oil_storage > 1.0 min buffer
+     -- CDU functions on current temp if we have something in oil_storage
+     if CDU.metadata.oil_storage > 1.0 then
+          -- get storage to export CDU products
+          local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', CDU.citizenid)
+
+          if CDU.metadata.temp < 20.0 and CDU.metadata.temp > 0.0 then
+               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
+          elseif CDU.metadata.temp < 150.0 and CDU.metadata.temp > 20.0 then
+               -- Butane & Propane
+               -- other gases
+               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
+               blender.metadata.other_gases = blender.metadata.other_gases + 0.75
+          elseif CDU.metadata.temp < 200.0 and CDU.metadata.temp > 150.0 then
+               -- Petrol
+               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
+               blender.metadata.light_naphtha = blender.metadata.light_naphtha + 1.5
+          elseif CDU.metadata.temp < 300.0 and CDU.metadata.temp > 200.0 then
+               -- Diesel
+               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
+               blender.metadata.light_naphtha = blender.metadata.light_naphtha + 1.0
+          elseif CDU.metadata.temp < 370.0 and CDU.metadata.temp > 300.0 then
+               -- Fuel Oil
+               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
+               blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha + 1.0
+          elseif CDU.metadata.temp < 400.0 and CDU.metadata.temp > 370.0 then
+               -- Lubricating oil, Parrafin Wax, Asphalt
+               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
+               blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha + 0.5
           end
      end
 end
@@ -389,15 +392,15 @@ SendOilToStorage = function(oilrig, player)
 end
 
 InitStorage = function(o)
-     print_table(o)
      local sqlQuery = 'INSERT INTO oilrig_storage (citizenid,name,metadata) VALUES (?,?,?)'
+     local metadata = {
+          gasoline = 0.0,
+          crudeOil = 0.0
+     }
      local QueryData = {
           o.citizenid,
           o.name,
-          json.encode({
-               gasoline = 0.0,
-               crudeOil = 0.0
-          }),
+          json.encode(metadata),
      }
      local res = MySQL.Sync.insert(sqlQuery, QueryData)
      if res ~= 0 then
@@ -406,10 +409,7 @@ InitStorage = function(o)
                id = res,
                citizenid = o.citizenid,
                name = o.name,
-               metadata = json.encode({
-                    gasoline = 0.0,
-                    crudeOil = 0.0
-               })
+               metadata = json.encode(metadata)
           }, 'oilrig_storage')
           return true
      end
@@ -420,14 +420,15 @@ end
 -- CDU
 Init_CDU = function(o)
      local sqlQuery = 'INSERT INTO oilrig_cdu (citizenid,metadata) VALUES (?,?)'
+     local metadata = {
+          temp = 0.0,
+          req_temp = 0.0,
+          state = false,
+          oil_storage = 0.0
+     }
      local QueryData = {
           o.citizenid,
-          json.encode({
-               temp = 0.0,
-               req_temp = 0.0,
-               state = false,
-               oil_storage = 0.0
-          }),
+          json.encode(metadata),
      }
      local res = MySQL.Sync.insert(sqlQuery, QueryData)
      if res ~= 0 then
@@ -435,12 +436,7 @@ Init_CDU = function(o)
           GlobalScirptData:newDevice({
                id = res,
                citizenid = o.citizenid,
-               metadata = json.encode({
-                    temp = 0.0,
-                    req_temp = 0.0,
-                    state = false,
-                    oil_storage = 0.0
-               })
+               metadata = json.encode(metadata)
           }, 'oilrig_cdu')
           return true
      end
