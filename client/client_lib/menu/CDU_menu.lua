@@ -1,6 +1,9 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
 local function showCDU(data)
+     if data == false then
+          return
+     end
      local state = ''
      if data.metadata.state == true then
           state = 'Active'

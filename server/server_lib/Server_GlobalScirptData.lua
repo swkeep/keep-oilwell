@@ -369,6 +369,10 @@ function DataManipulations_metadata_oil_well(oil_well)
           elseif oil_well.metadata.secduration == 0 then
                oil_well.metadata.temp = 0
           end
+
+          if oil_well.metadata.secduration > 0 and oil_well.metadata.temp == 0 then
+               oil_well.metadata.secduration = 0
+          end
      end
 end
 

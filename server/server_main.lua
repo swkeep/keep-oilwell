@@ -43,14 +43,12 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:getStorageData', function(so
      local citizenid = player.PlayerData.citizenid
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
      if storage == false then
-          local state = InitStorage({
+          InitStorage({
                citizenid = citizenid,
                name = player.PlayerData.name .. "'s storage",
           })
-          if state == true then
-               storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
-               cb(storage)
-          end
+          storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+          cb(storage)
      end
      cb(storage)
 end)
@@ -63,8 +61,12 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawWithBarrel', functio
      local citizenid = player.PlayerData.citizenid
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
      if storage == false then
-          cb(false)
-          return
+          InitStorage({
+               citizenid = citizenid,
+               name = player.PlayerData.name .. "'s storage",
+          })
+
+          storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
      end
      if data.type == nil then
           cb(false)
@@ -94,8 +96,12 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:withdraw_from_queue', functi
      local citizenid = player.PlayerData.citizenid
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
      if storage == false then
-          cb(false)
-          return
+          InitStorage({
+               citizenid = citizenid,
+               name = player.PlayerData.name .. "'s storage",
+          })
+
+          storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
      end
      if type(storage.metadata.queue) == "table" and next(storage.metadata.queue) == nil then
           TriggerClientEvent('QBCore:Notify', source, "You don't have anything in queue!", 'error')
@@ -174,10 +180,14 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:get_CDU_Data', function(sour
      local citizenid = player.PlayerData.citizenid
      -- #TODO CDU
      local CDU = GlobalScirptData:getDeviceByCitizenId('oilrig_cdu', citizenid)
+
      if CDU == false then
           Init_CDU({
                citizenid = citizenid,
           })
+          CDU = GlobalScirptData:getDeviceByCitizenId('oilrig_cdu', citizenid)
+          cb(CDU)
+          return
      end
 
      -- callback must return CDU's object reason ==> reopen menu with new values
@@ -218,6 +228,15 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:pumpCrudeOil_to_CDU', functi
      local citizenid = player.PlayerData.citizenid
      local CDU = GlobalScirptData:getDeviceByCitizenId('oilrig_cdu', citizenid)
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+
+     if storage == false then
+          InitStorage({
+               citizenid = citizenid,
+               name = player.PlayerData.name .. "'s storage",
+          })
+
+          storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+     end
 
      if storage.metadata.crudeOil >= inputData.amount then
           storage.metadata.crudeOil = storage.metadata.crudeOil - inputData.amount
@@ -308,15 +327,13 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:createNewOilrig', function(s
 end)
 
 ---register oilrig to player by their current cid
----@param inputData any
----@param NetId any
-RegisterNetEvent('keep-oilrig:server:regiserOilrig', function(inputData, NetId)
+QBCore.Functions.CreateCallback('keep-oilrig:server:regiserOilrig', function(source, cb, inputData)
      -- get player by entered cid
      local cid = tonumber(inputData.cid)
      local player = QBCore.Functions.GetPlayer(cid)
      if player ~= nil then
           local PlayerData = player.PlayerData
-          local entity = NetworkGetEntityFromNetworkId(NetId)
+          local entity = NetworkGetEntityFromNetworkId(inputData.netId)
           local coord = GetEntityCoords(entity)
           local rotation = GetEntityRotation(entity)
           local position = {
@@ -361,8 +378,10 @@ RegisterNetEvent('keep-oilrig:server:regiserOilrig', function(inputData, NetId)
                oilrig_hash = hash,
                metadata = json.encode(metadata)
           })
+          cb(true)
      else
           TriggerClientEvent('QBCore:Notify', source, "Could not find player by it cid!")
+          cb(false)
      end
 end)
 

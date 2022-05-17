@@ -143,6 +143,7 @@ function createOwnerQbTarget(entity)
      })
 end
 
+local CoreEntities = {}
 function createEntityQbTarget(PlayerJob)
      for key, value in pairs(Config.locations) do
           local position = {
@@ -166,6 +167,28 @@ function createEntityQbTarget(PlayerJob)
           SetEntityAsMissionEntity(entity, 0, 0)
           SetEntityHeading(entity, value.position.w)
           FreezeEntityPosition(entity, true)
+
+          CoreEntities[key] = {
+               entity = entity,
+               qbtarget = ''
+          }
+
+     end
+     addQbTargetForOurCoreEntities()
+end
+
+function addQbTargetForOurCoreEntities()
+     for key, value in pairs(Config.locations) do
+          local entity = CoreEntities[key].entity
+          CoreEntities[key].qbtarget = key .. entity
+          local position = {
+               coord = {
+                    x = value.position.x,
+                    y = value.position.y,
+                    z = value.position.z
+               }
+          }
+
           if PlayerJob.name == 'oilwell' then
                if key == 'storage' then
                     createCustom(position.coord, {
@@ -174,8 +197,8 @@ function createEntityQbTarget(PlayerJob)
                          range = 'short',
                          name = 'Oil ' .. key
                     })
-                    exports['qb-target']:AddEntityZone("oil-storage" .. entity, entity, {
-                         name = "oil-storage" .. entity,
+                    exports['qb-target']:AddEntityZone("storage" .. entity, entity, {
+                         name = "storage" .. entity,
                          heading = GetEntityHeading(entity),
                          debugPoly = false,
                     }, {
@@ -199,8 +222,8 @@ function createEntityQbTarget(PlayerJob)
                          range = 'short',
                          name = 'Oil ' .. key
                     })
-                    exports['qb-target']:AddEntityZone("oil-CDU" .. entity, entity, {
-                         name = "oil-CDU" .. entity,
+                    exports['qb-target']:AddEntityZone("distillation" .. entity, entity, {
+                         name = "distillation" .. entity,
                          heading = GetEntityHeading(entity),
                          debugPoly = false,
                     }, {
@@ -224,8 +247,8 @@ function createEntityQbTarget(PlayerJob)
                          range = 'short',
                          name = 'Oil ' .. key
                     })
-                    exports['qb-target']:AddEntityZone("oil-blender" .. entity, entity, {
-                         name = "oil-blender" .. entity,
+                    exports['qb-target']:AddEntityZone("blender" .. entity, entity, {
+                         name = "blender" .. entity,
                          heading = GetEntityHeading(entity),
                          debugPoly = false,
                     }, {
@@ -249,8 +272,8 @@ function createEntityQbTarget(PlayerJob)
                          range = 'short',
                          name = 'Oil ' .. key
                     })
-                    exports['qb-target']:AddEntityZone("oil-barrel_withdraw" .. entity, entity, {
-                         name = "oil-barrel_withdraw" .. entity,
+                    exports['qb-target']:AddEntityZone("barrel_withdraw" .. entity, entity, {
+                         name = "barrel_withdraw" .. entity,
                          heading = GetEntityHeading(entity),
                          debugPoly = false,
                     }, {
@@ -268,6 +291,33 @@ function createEntityQbTarget(PlayerJob)
                          distance = 2.5
                     })
                end
+          end
+
+          if key == 'toggle_job' then
+               createCustom(position.coord, {
+                    sprite = 306,
+                    colour = 5,
+                    range = 'short',
+                    name = 'Oil ' .. key
+               })
+               exports['qb-target']:AddEntityZone("toggle_job" .. entity, entity, {
+                    name = "toggle_job" .. entity,
+                    heading = GetEntityHeading(entity),
+                    debugPoly = false,
+               }, {
+                    options = {
+                         {
+                              type = "client",
+                              event = "keep-oilrig:client:goOnDuty",
+                              icon = "fa-solid fa-boxes-packing",
+                              label = "Toggle Duty",
+                              canInteract = function(entity)
+                                   return true
+                              end,
+                         },
+                    },
+                    distance = 2.5
+               })
           end
      end
 end
@@ -290,27 +340,39 @@ RegisterNetEvent('keep-oilrig:client:clearArea', function(coord)
      )
 end)
 
-RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
+function removeCoreEntities()
+     for key, value in pairs(CoreEntities) do
+          exports['qb-target']:RemoveZone(value.qbtarget)
+     end
+end
+
+RegisterNetEvent('QBCore:Client:OnJobUpdate', function(PlayerJob)
      if PlayerJob.name == 'oilwell' then
           OnDuty = PlayerJob.onduty
-
           if PlayerJob.onduty then
-
+               addQbTargetForOurCoreEntities()
           else
-
+               if next(CoreEntities) ~= nil then
+                    removeCoreEntities()
+               end
           end
+          return
      end
+
+     removeCoreEntities()
 end)
 
 RegisterNetEvent('keep-oilrig:client:goOnDuty', function(PlayerJob)
      TriggerServerEvent("QBCore:ToggleDuty")
-     if PlayerJob.onduty == false then
+     if PlayerJob.name == 'oilwell' and PlayerJob.onduty == false then
+          addQbTargetForOurCoreEntities()
           for key, value in pairs(blips) do
                SetBlipDisplay(
                     value,
                     4)
           end
      else
+          removeCoreEntities()
           for key, value in pairs(blips) do
                SetBlipDisplay(
                     value,
