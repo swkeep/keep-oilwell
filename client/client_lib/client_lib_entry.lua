@@ -2,6 +2,7 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 PlayerJob = {}
 OnDuty = false
+local blips = {}
 local function Draw2DText(content, font, colour, scale, x, y)
      SetTextFont(font)
      SetTextScale(scale, scale)
@@ -89,6 +90,7 @@ function createCustom(coord, o)
      BeginTextCommandSetBlipName("STRING")
      AddTextComponentString(o.name)
      EndTextCommandSetBlipName(blip)
+     table.insert(blips, blip)
      return blip
 end
 
@@ -96,7 +98,7 @@ function createOwnerQbTarget(entity)
      exports['qb-target']:AddEntityZone("oil-rig-" .. entity, entity, {
           name = "oil-rig-" .. entity,
           heading = GetEntityHeading(entity),
-          debugPoly = true,
+          debugPoly = false,
      }, {
           options = {
                {
@@ -141,7 +143,7 @@ function createOwnerQbTarget(entity)
      })
 end
 
-function createEntityQbTarget()
+function createEntityQbTarget(PlayerJob)
      for key, value in pairs(Config.locations) do
           local position = {
                coord = {
@@ -164,94 +166,108 @@ function createEntityQbTarget()
           SetEntityAsMissionEntity(entity, 0, 0)
           SetEntityHeading(entity, value.position.w)
           FreezeEntityPosition(entity, true)
-          if key == 'storage' then
-               createCustom(position.coord, {
-                    sprite = 361,
-                    colour = 5,
-                    range = 'short',
-                    name = 'Oil ' .. key
-               })
-               exports['qb-target']:AddEntityZone("oil-storage" .. entity, entity, {
-                    name = "oil-storage" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = true,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:storage_menu:ShowStorage",
-                              icon = "fa-solid fa-arrows-spin",
-                              label = "View Storage",
-                              canInteract = function(entity)
-                                   return true
-                              end,
+          if PlayerJob.name == 'oilwell' then
+               if key == 'storage' then
+                    createCustom(position.coord, {
+                         sprite = 478,
+                         colour = 5,
+                         range = 'short',
+                         name = 'Oil ' .. key
+                    })
+                    exports['qb-target']:AddEntityZone("oil-storage" .. entity, entity, {
+                         name = "oil-storage" .. entity,
+                         heading = GetEntityHeading(entity),
+                         debugPoly = false,
+                    }, {
+                         options = {
+                              {
+                                   type = "client",
+                                   event = "keep-oilrig:storage_menu:ShowStorage",
+                                   icon = "fa-solid fa-arrows-spin",
+                                   label = "View Storage",
+                                   canInteract = function(entity)
+                                        return true
+                                   end,
+                              },
                          },
-                    },
-                    distance = 2.5
-               })
-          elseif key == 'distillation' then
-               createCustom(position.coord, {
-                    sprite = 365,
-                    colour = 5,
-                    range = 'short',
-                    name = 'Oil ' .. key
-               })
-               exports['qb-target']:AddEntityZone("oil-CDU" .. entity, entity, {
-                    name = "oil-CDU" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = true,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:CDU_menu:ShowCDU",
-                              icon = "fa-solid fa-gear",
-                              label = "Open CDU panel",
-                              canInteract = function(entity)
-                                   return true
-                              end,
+                         distance = 2.5
+                    })
+               elseif key == 'distillation' then
+                    createCustom(position.coord, {
+                         sprite = 467,
+                         colour = 5,
+                         range = 'short',
+                         name = 'Oil ' .. key
+                    })
+                    exports['qb-target']:AddEntityZone("oil-CDU" .. entity, entity, {
+                         name = "oil-CDU" .. entity,
+                         heading = GetEntityHeading(entity),
+                         debugPoly = false,
+                    }, {
+                         options = {
+                              {
+                                   type = "client",
+                                   event = "keep-oilrig:CDU_menu:ShowCDU",
+                                   icon = "fa-solid fa-gear",
+                                   label = "Open CDU panel",
+                                   canInteract = function(entity)
+                                        return true
+                                   end,
+                              },
                          },
-                    },
-                    distance = 2.5
-               })
-          elseif key == 'blender' then
-               exports['qb-target']:AddEntityZone("oil-blender" .. entity, entity, {
-                    name = "oil-blender" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = true,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:blender_menu:ShowBlender",
-                              icon = "fa-solid fa-gear",
-                              label = "Open blender panel",
-                              canInteract = function(entity)
-                                   return true
-                              end,
+                         distance = 2.5
+                    })
+               elseif key == 'blender' then
+                    createCustom(position.coord, {
+                         sprite = 365,
+                         colour = 5,
+                         range = 'short',
+                         name = 'Oil ' .. key
+                    })
+                    exports['qb-target']:AddEntityZone("oil-blender" .. entity, entity, {
+                         name = "oil-blender" .. entity,
+                         heading = GetEntityHeading(entity),
+                         debugPoly = false,
+                    }, {
+                         options = {
+                              {
+                                   type = "client",
+                                   event = "keep-oilrig:blender_menu:ShowBlender",
+                                   icon = "fa-solid fa-gear",
+                                   label = "Open blender panel",
+                                   canInteract = function(entity)
+                                        return true
+                                   end,
+                              },
                          },
-                    },
-                    distance = 2.5
-               })
-          elseif key == 'barrel_withdraw' then
-               exports['qb-target']:AddEntityZone("oil-barrel_withdraw" .. entity, entity, {
-                    name = "oil-barrel_withdraw" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = true,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:client_lib:withdraw_from_queue",
-                              icon = "fa-solid fa-boxes-packing",
-                              label = "Send to invnetory",
-                              canInteract = function(entity)
-                                   return true
-                              end,
+                         distance = 2.5
+                    })
+               elseif key == 'barrel_withdraw' then
+                    createCustom(position.coord, {
+                         sprite = 549,
+                         colour = 5,
+                         range = 'short',
+                         name = 'Oil ' .. key
+                    })
+                    exports['qb-target']:AddEntityZone("oil-barrel_withdraw" .. entity, entity, {
+                         name = "oil-barrel_withdraw" .. entity,
+                         heading = GetEntityHeading(entity),
+                         debugPoly = false,
+                    }, {
+                         options = {
+                              {
+                                   type = "client",
+                                   event = "keep-oilrig:client_lib:withdraw_from_queue",
+                                   icon = "fa-solid fa-boxes-packing",
+                                   label = "Send to invnetory",
+                                   canInteract = function(entity)
+                                        return true
+                                   end,
+                              },
                          },
-                    },
-                    distance = 2.5
-               })
+                         distance = 2.5
+                    })
+               end
           end
      end
 end
@@ -274,16 +290,31 @@ RegisterNetEvent('keep-oilrig:client:clearArea', function(coord)
      )
 end)
 
+RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
+     if PlayerJob.name == 'oilwell' then
+          OnDuty = PlayerJob.onduty
 
--- RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
---      PlayerJob = JobInfo
---      print_table(PlayerJob)
---      if PlayerJob.name == 'oilwell' then
---           OnDuty = PlayerJob.onduty
---           if PlayerJob.onduty then
---                -- TriggerServerEvent("hospital:server:AddDoctor", PlayerJob.name)
---           else
---                -- TriggerServerEvent("hospital:server:RemoveDoctor", PlayerJob.name)
---           end
---      end
--- end)
+          if PlayerJob.onduty then
+
+          else
+
+          end
+     end
+end)
+
+RegisterNetEvent('keep-oilrig:client:goOnDuty', function(PlayerJob)
+     TriggerServerEvent("QBCore:ToggleDuty")
+     if PlayerJob.onduty == false then
+          for key, value in pairs(blips) do
+               SetBlipDisplay(
+                    value,
+                    4)
+          end
+     else
+          for key, value in pairs(blips) do
+               SetBlipDisplay(
+                    value,
+                    0)
+          end
+     end
+end)

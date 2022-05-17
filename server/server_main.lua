@@ -370,6 +370,13 @@ end)
 --          Commands
 -- ===========================
 
-QBCore.Commands.Add('spawn', 'spawn pet', {}, false, function(source, args)
-     TriggerClientEvent('keep-oilrig:client:spawn', source, args[1])
+QBCore.Commands.Add('create', 'create new oilwell', {}, false, function(source, args)
+     if args[1] == 'oilwell' then
+          TriggerClientEvent('keep-oilrig:client:spawn', source, args[1])
+     end
+end, 'admin')
+
+QBCore.Commands.Add('togglejob', 'togglejob', {}, false, function(source, args)
+     local PlayerJob = QBCore.Functions.GetPlayer(source).PlayerData.job
+     TriggerClientEvent('keep-oilrig:client:goOnDuty', source, PlayerJob)
 end, 'admin')

@@ -104,9 +104,9 @@ local function loadData()
      QBCore.Functions.GetPlayerData(function(PlayerData)
           PlayerJob = PlayerData.job
           OnDuty = PlayerData.job.onduty
-          if PlayerJob.name == 'oilwell' and OnDuty then
-               createEntityQbTarget()
-          end
+
+          createEntityQbTarget(PlayerJob)
+
           QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
                for key, value in pairs(result) do
                     OilRigs:add(value, key)
