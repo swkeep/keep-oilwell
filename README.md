@@ -15,6 +15,9 @@
 * Acually using products!
 * and all things i didn't think of! 
 
+## Usage
+* add oilwell by /create oilwell and then place and asign it to a player.
+
 ## Installation
 * IMPORTANT: This project is a WIP project of mine(as always) so expect too many bugs :)
 
