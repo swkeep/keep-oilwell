@@ -42,14 +42,23 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:getStorageData', function(so
      local player = QBCore.Functions.GetPlayer(source)
      local citizenid = player.PlayerData.citizenid
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
-     if storage ~= false then
-          cb(storage)
-          return
+     if storage == false then
+          local state = InitStorage({
+               citizenid = citizenid,
+               name = player.PlayerData.name .. "'s storage",
+          })
+          if state == true then
+               storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+               cb(storage)
+          end
      end
-     cb(false)
+     cb(storage)
 end)
 
 QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawWithBarrel', function(source, cb, data)
+     if type(data.amount) == "string" then
+          data.amount = tonumber(data.amount)
+     end
      local player = QBCore.Functions.GetPlayer(source)
      local citizenid = player.PlayerData.citizenid
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
@@ -57,19 +66,54 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawWithBarrel', functio
           cb(false)
           return
      end
-     if data.type == 'crudeOil' then
-          local value = storage.metadata.crudeOil
-          storage.metadata.crudeOil = 0.0
+     if data.type == nil then
+          cb(false)
+          return
+     end
+     local value = storage.metadata[data.type]
+
+     if value < data.amount then
+          TriggerClientEvent('QBCore:Notify', source, "You can not withdraw this much!", 'error')
+          TriggerClientEvent('QBCore:Notify', source, "Requested: " .. data.amount .. " Current: " .. value, 'error')
+          cb(false)
+          return
+     end
+     -- #TODO revert back to 0.0
+     storage.metadata[data.type] = storage.metadata[data.type] - data.amount
+     storage.metadata.queue[#storage.metadata.queue + 1] = {
+          type = data.type,
+          gal = storage.metadata[data.type],
+          avg_gas_octane = 87 -- #TODO replace avg_gas_octane placeholder
+     }
+     TriggerClientEvent('QBCore:Notify', source, "We compeleted your withdraw request.", 'success')
+     cb(true)
+end)
+
+QBCore.Functions.CreateCallback('keep-oilrig:server:withdraw_from_queue', function(source, cb)
+     local player = QBCore.Functions.GetPlayer(source)
+     local citizenid = player.PlayerData.citizenid
+     local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+     if storage == false then
+          cb(false)
+          return
+     end
+     if type(storage.metadata.queue) == "table" and next(storage.metadata.queue) == nil then
+          TriggerClientEvent('QBCore:Notify', source, "You don't have anything in queue!", 'error')
+          cb(false)
+          return
+     end
+     for key, barrel in pairs(storage.metadata.queue) do
           player.Functions.RemoveMoney('bank', Config.Settings.capacity.oilbarell.price, 'oil barell')
           player.Functions.AddItem('oilbarell', 1, 1, {
-               gal = value,
-               type = data.type
+               type = barrel.type,
+               gal = barrel.gal,
+               avg_gas_octane = barrel.avg_gas_octane
           })
-
-     elseif data.type == 'gasoline' then
-          print(storage.metadata.gasoline)
+          TriggerClientEvent('QBCore:Notify', source, "Request compeleted!", 'success')
+          cb(storage)
+          storage.metadata.queue[key] = nil
+          return
      end
-     cb(true)
 end)
 
 QBCore.Functions.CreateUseableItem('oilbarell', function(source, item)
@@ -250,9 +294,11 @@ end)
 --- create oilrig and initialize it's data into database
 ---@param source integer
 ---@param cb 'calback'
----@param coords 'vector3'
+---@param coords table
 ---@return 'NetId'
 QBCore.Functions.CreateCallback('keep-oilrig:server:createNewOilrig', function(source, cb, coords)
+     local rigmodel = GetHashKey('p_oil_pjack_03_s')
+
      local oilrig = CreateObject(rigmodel, coords.x, coords.y, coords.z, 1, 1, 0)
      while not DoesEntityExist(oilrig) do
           Wait(50)
@@ -289,6 +335,7 @@ RegisterNetEvent('keep-oilrig:server:regiserOilrig', function(inputData, NetId)
                speed = 0,
                temp = 0,
                duration = 0,
+               secduration = 0,
                oil_storage = 0,
                part_info = {
                     belt = 0,
@@ -296,13 +343,23 @@ RegisterNetEvent('keep-oilrig:server:regiserOilrig', function(inputData, NetId)
                     clutch = 0,
                }
           }
-          GeneralInsert({
+          local hash = RandomHash(15)
+          local id = GeneralInsert({
                citizenid = PlayerData.citizenid,
                name = inputData.name,
-               oilrig_hash = RandomHash(15),
+               oilrig_hash = hash,
                position = position,
                metadata = metadata,
-               state = 0
+               state = false
+          })
+          GlobalScirptData:newOilwell({
+               id = id,
+               citizenid = PlayerData.citizenid,
+               position = json.encode(position),
+               name = inputData.name,
+               state = false,
+               oilrig_hash = hash,
+               metadata = json.encode(metadata)
           })
      else
           TriggerClientEvent('QBCore:Notify', source, "Could not find player by it cid!")

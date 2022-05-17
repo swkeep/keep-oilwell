@@ -31,6 +31,7 @@ GlobalScirptData = {
                     citizenid = '',
                     name = '',
                     metadata = {
+                         avg_gas_octane = 0,
                          gasoline = 0.0,
                          crudeOil = 0.0
                     },
@@ -394,6 +395,8 @@ end
 InitStorage = function(o)
      local sqlQuery = 'INSERT INTO oilrig_storage (citizenid,name,metadata) VALUES (?,?,?)'
      local metadata = {
+          queue = {},
+          avg_gas_octane = 0,
           gasoline = 0.0,
           crudeOil = 0.0
      }
@@ -501,7 +504,11 @@ function GeneralUpdate_2(options)
      end
      local sqlQuery = ''
      local QueryData = {}
-
+     for key, value in pairs(options.metadata) do
+          if type(value) == "number" then
+               options.metadata[key] = Round(value, 2)
+          end
+     end
      if options.type == 'oilrig_storage' or options.type == 'oilrig_cdu' or options.type == 'oilrig_blender' then
           sqlQuery = 'UPDATE ' .. options.type .. ' SET metadata = ? WHERE citizenid = ? AND metadata <> ?'
           QueryData = {

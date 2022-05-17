@@ -8,7 +8,7 @@ function GeneralInsert(options)
           json.encode(options.metadata),
           options.state
      }
-     MySQL.Async.insert(sqlQuery, QueryData)
+     return MySQL.Sync.insert(sqlQuery, QueryData)
 end
 
 function isTableChanged(oldTable, newTable)

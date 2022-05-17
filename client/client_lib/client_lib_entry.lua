@@ -1,3 +1,5 @@
+local QBCore = exports['qb-core']:GetCoreObject()
+
 PlayerJob = {}
 OnDuty = false
 local function Draw2DText(content, font, colour, scale, x, y)
@@ -240,7 +242,7 @@ function createEntityQbTarget()
                     options = {
                          {
                               type = "client",
-                              event = "",
+                              event = "keep-oilrig:client_lib:withdraw_from_queue",
                               icon = "fa-solid fa-boxes-packing",
                               label = "Send to invnetory",
                               canInteract = function(entity)
@@ -253,6 +255,12 @@ function createEntityQbTarget()
           end
      end
 end
+
+RegisterNetEvent('keep-oilrig:client_lib:withdraw_from_queue', function()
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:withdraw_from_queue', function(result)
+
+     end)
+end)
 
 ---force remove objects in area
 ---@param coord table

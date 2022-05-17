@@ -196,19 +196,37 @@ AddEventHandler('keep-oilrig:storage_menu:StorageWithdraw', function(data)
 end)
 
 AddEventHandler('keep-oilrig:storage_menu:Callback', function(data)
-     QBCore.Functions.TriggerCallback(data.eventName, function(res)
-          if res == false then
+     local inputData = exports['qb-input']:ShowInput({
+          header = "Enter withdraw value",
+          submitText = "Confirm",
+          inputs = {
+               {
+                    type = 'number',
+                    isRequired = true,
+                    name = 'amount',
+                    text = "amount"
+               },
+          }
+     })
+     if inputData then
+          if not inputData.amount then
                return
           end
-          if data.eventName ~= 'keep-oilrig:server:WithdrawLoadInTruck' then
-               return
-          end
+          data.amount = inputData.amount
+          QBCore.Functions.TriggerCallback(data.eventName, function(res)
+               if res == false then
+                    return
+               end
+               if data.eventName ~= 'keep-oilrig:server:WithdrawLoadInTruck' then
+                    return
+               end
 
-          -- res >> table of items
-          local SpawnLocation = Config.Delivery.SpawnLocation
-          local TriggerLocation = Config.Delivery.TriggerLocation
-          local DinstanceToTrigger = Config.Delivery.DinstanceToTrigger
-          local model = Config.Delivery.vehicleModel
-          MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, res)
-     end, data)
+               -- res >> table of items
+               local SpawnLocation = Config.Delivery.SpawnLocation
+               local TriggerLocation = Config.Delivery.TriggerLocation
+               local DinstanceToTrigger = Config.Delivery.DinstanceToTrigger
+               local model = Config.Delivery.vehicleModel
+               MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, res)
+          end, data)
+     end
 end)

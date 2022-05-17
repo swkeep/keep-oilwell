@@ -75,59 +75,6 @@ function OilRigs:readAll()
 end
 
 --
-RegisterNetEvent('keep-oilrig:client:spawn')
-AddEventHandler('keep-oilrig:client:spawn', function()
-     local coords = ChooseSpawnLocation()
-     QBCore.Functions.TriggerCallback('keep-oilrig:server:createNewOilrig', function(id)
-          if id ~= nil then
-               OBJECT = entity
-               exports['qb-target']:AddEntityZone("oil-rig-" .. entity, entity, {
-                    name = "oil-rig-" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = true,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:client:enterInformation",
-                              icon = "fa-regular fa-file-lines",
-                              label = "Assign to player",
-                              canInteract = function(entity)
-                                   return true
-                              end,
-                         },
-                    },
-                    distance = 2.5
-               })
-          end
-     end, coords)
-end)
-
-RegisterNetEvent('keep-oilrig:client:enterInformation', function(qbtarget)
-     local inputData = exports['qb-input']:ShowInput({
-          header = "Assign oil rig: ",
-          submitText = "Assign",
-          inputs = { {
-               type = 'text',
-               isRequired = true,
-               name = 'name',
-               text = "enter rig name"
-          },
-          {
-               type = 'number',
-               isRequired = true,
-               name = 'cid',
-               text = "current player cid"
-          },
-          }
-     })
-     if inputData then
-          if not inputData.name and not inputData.cid then
-               return
-          end
-          TriggerServerEvent('keep-oilrig:server:regiserOilrig', inputData, id)
-     end
-end)
 
 RegisterNetEvent('keep-oilrig:client:changeRigSpeed', function(qbtarget)
      OilRigs:startUpdate(function()
@@ -152,11 +99,8 @@ RegisterNetEvent('keep-oilrig:client:changeRigSpeed', function(qbtarget)
      end)
 end)
 
-AddEventHandler('onResourceStart', function(resourceName)
-     if (GetCurrentResourceName() ~= resourceName) then
-          return
-     end
-     Wait(500)
+local function loadData()
+     OilRigs.data_table = {}
      QBCore.Functions.GetPlayerData(function(PlayerData)
           PlayerJob = PlayerData.job
           OnDuty = PlayerData.job.onduty
@@ -172,19 +116,19 @@ AddEventHandler('onResourceStart', function(resourceName)
                end
           end)
      end)
+end
 
+AddEventHandler('onResourceStart', function(resourceName)
+     if (GetCurrentResourceName() ~= resourceName) then
+          return
+     end
+     Wait(500)
+     loadData()
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-     -- ask server fro netIDs
      Wait(1500)
-     createEntityQbTarget()
-     QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
-          for key, value in pairs(result) do
-               OilRigs:add(value, key)
-          end
-          DistanceTracker()
-     end)
+     loadData()
 end)
 
 function giveControlToOwner(entity)
@@ -255,3 +199,63 @@ function spawnObjects(position)
      SetEntityAsMissionEntity(entity, 0, 0) -- #TODO replace it with dynamic spawn based on player position!
      return entity
 end
+
+-- --------------------------------------------------------------
+
+RegisterNetEvent('keep-oilrig:client:spawn')
+AddEventHandler('keep-oilrig:client:spawn', function()
+     local coords = ChooseSpawnLocation()
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:createNewOilrig', function(NetId)
+          if NetId ~= nil then
+               local entity = NetworkGetEntityFromNetworkId(NetId)
+               OBJECT = entity
+               exports['qb-target']:AddEntityZone("oil-rig-" .. entity, entity, {
+                    name = "oil-rig-" .. entity,
+                    heading = GetEntityHeading(entity),
+                    debugPoly = true,
+               }, {
+                    options = {
+                         {
+                              type = "client",
+                              event = "keep-oilrig:client:enterInformation",
+                              icon = "fa-regular fa-file-lines",
+                              label = "Assign to player",
+                              canInteract = function(entity)
+                                   return true
+                              end,
+                         },
+                    },
+                    distance = 2.5
+               })
+          end
+     end, coords)
+end)
+
+RegisterNetEvent('keep-oilrig:client:enterInformation', function(qbtarget)
+     local inputData = exports['qb-input']:ShowInput({
+          header = "Assign oil rig: ",
+          submitText = "Assign",
+          inputs = { {
+               type = 'text',
+               isRequired = true,
+               name = 'name',
+               text = "enter rig name"
+          },
+          {
+               type = 'number',
+               isRequired = true,
+               name = 'cid',
+               text = "current player cid"
+          },
+          }
+     })
+     if inputData then
+          if not inputData.name and not inputData.cid then
+               return
+          end
+          local netId = NetworkGetNetworkIdFromEntity(qbtarget.entity)
+          TriggerServerEvent('keep-oilrig:server:regiserOilrig', inputData, netId)
+          Wait(1500)
+          loadData()
+     end
+end)
