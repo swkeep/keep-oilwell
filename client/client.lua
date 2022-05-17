@@ -254,8 +254,15 @@ RegisterNetEvent('keep-oilrig:client:enterInformation', function(qbtarget)
                return
           end
           local netId = NetworkGetNetworkIdFromEntity(qbtarget.entity)
-          TriggerServerEvent('keep-oilrig:server:regiserOilrig', inputData, netId)
-          Wait(1500)
-          loadData()
+
+          inputData.netId = netId
+          QBCore.Functions.TriggerCallback('keep-oilrig:server:regiserOilrig', function(result)
+               DeleteEntity(qbtarget.entity)
+               if result == true then
+                    Wait(1500)
+                    QBCore.Functions.Notify('Registering oilwell to: ' .. inputData.cid, "success")
+                    loadData()
+               end
+          end, inputData)
      end
 end)

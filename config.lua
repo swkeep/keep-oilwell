@@ -59,6 +59,10 @@ Config.locations = {
      oil_wellhead = {
           position = vector4(1480.9, -1850.85, 70.1, 246.85),
           model = 'prop_oil_wellhead_01',
+     },
+     toggle_job = {
+          position = vector4(1703.5, -1635.18, 111.49, 100.11),
+          model = 'xm_base_cia_server_02',
      }
 }
 -- prop_barrel_exp_01a.yft ron
