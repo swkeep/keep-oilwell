@@ -20,6 +20,8 @@
 
 ## Installation
 * IMPORTANT: This project is a WIP project of mine(as always) so expect too many bugs :)
+## Step 0:
+* import sql.sql in your database 
 
 ## Step 1:
 ** qb-core shared items.lua
