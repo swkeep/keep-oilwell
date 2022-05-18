@@ -162,6 +162,7 @@ MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
      local veh = CreateVehicle(model, Coord.x, Coord.y, Coord.z, Coord.w, true, false)
      local netid = NetworkGetNetworkIdFromEntity(veh)
      SetVehicleHasBeenOwnedByPlayer(veh, true)
+     TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(veh))
 
      SetNetworkIdCanMigrate(netid, true)
      SetVehicleNeedsToBeHotwired(veh, false)
@@ -171,13 +172,11 @@ MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
      -- TaskWarpPedIntoVehicle(plyped, veh, -1)
      -- exports['LegacyFuel']:SetFuel(veh, math.random(80, 90))
      SetVehicleEngineOn(veh, true, true)
-     TriggerEvent('keep-oilrig:menu:AddToTrunk', vehiclePlate, items)
+
+     TriggerServerEvent('inventory:server:addTrunkItems', vehiclePlate, items)
+
      SetModelAsNoLongerNeeded(model)
 end
-
-AddEventHandler('keep-oilrig:menu:AddToTrunk', function(vehiclePlate, items)
-     TriggerServerEvent('inventory:server:addTrunkItems', vehiclePlate, items)
-end)
 
 -- Events
 
@@ -226,6 +225,7 @@ AddEventHandler('keep-oilrig:storage_menu:Callback', function(data)
                local TriggerLocation = Config.Delivery.TriggerLocation
                local DinstanceToTrigger = Config.Delivery.DinstanceToTrigger
                local model = Config.Delivery.vehicleModel
+
                MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, res)
           end, data)
      end

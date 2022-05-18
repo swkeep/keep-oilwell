@@ -71,10 +71,10 @@ Config.locations = {
 -- prop_oil_wellhead_01
 -- prop_oilcan_02a
 Config.Delivery = {
-     TriggerLocation = vector3(1475.82, -1855.29, 72.05),
-     SpawnLocation = vector4(1495.04, -1850.61, 71.2, 109.22),
-     DinstanceToTrigger = 10.0,
-     vehicleModel = 'CGT'
+     TriggerLocation = vector3(1737.45, -1691.28, 112.73),
+     SpawnLocation = vector4(1741.19, -1694.61, 112.73, 125.57),
+     DinstanceToTrigger = 5.0,
+     vehicleModel = 'rallytruck'
 }
 
 Config.Settings = {
@@ -83,10 +83,10 @@ Config.Settings = {
                size = 5000, -- gal
                price = 500
           },
-          gasoline = {
-               size = 5000, -- gal
-               price = 500
-          },
+          truck = {
+               size = 5000, -- gal placeholder
+               price = 25000
+          }
      }
 }
 

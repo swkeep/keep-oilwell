@@ -128,36 +128,96 @@ QBCore.Functions.CreateUseableItem('oilbarell', function(source, item)
 end)
 
 QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawLoadInTruck', function(source, cb, data)
+     if type(data.amount) == "string" then
+          data.amount = tonumber(data.amount)
+     end
      local player = QBCore.Functions.GetPlayer(source)
      local citizenid = player.PlayerData.citizenid
      if player.PlayerData.citizenid == data.citizenid then
           local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
           local value = storage.metadata[data.type]
+
           if value == 0.0 then
+               TriggerClientEvent('QBCore:Notify', source, "Your storage is empty!", 'error')
                cb(false)
                return
           end
-          -- storage.metadata[data.type] = 0.0
-          local Barrel = {
-               { description = 'Oil Barrel',
-                    unique = true,
-                    name = 'oilbarell',
-                    image = 'oilBarrel.png',
-                    weight = 1000,
-                    slot = 1,
-                    label = 'Oil barell',
-                    info = {
-                         gal = value,
-                         type = data.type
-                    },
-                    amount = 1,
-                    shouldClose = true,
-                    useable = false,
-                    type = 'item' }
-          }
-          cb(Barrel)
+
+          if data.amount <= 0.0 or value < data.amount then
+               TriggerClientEvent('QBCore:Notify', source, "You don't have that much in your storage!", 'error')
+               TriggerClientEvent('QBCore:Notify', source, "Requested: " .. data.amount .. " Current: " .. value)
+               cb(false)
+               return
+          end
+
+          local RemoveMoney = player.Functions.RemoveMoney('bank', Config.Settings.capacity.truck.price, 'oil barell truck')
+          if RemoveMoney ~= true then
+               TriggerClientEvent('QBCore:Notify', source, "you don't have enough money in your bank!", 'error')
+               cb(false)
+               return
+          end
+          storage.metadata[data.type] = storage.metadata[data.type] - data.amount
+          local items = split_oilbarrel_size(data.amount, data)
+          cb(items)
      end
 end)
+
+local function SetCarItemsInfo(ouritems)
+     local items = {}
+     for k, item in pairs(ouritems) do
+          local itemInfo = QBCore.Shared.Items[item.name:lower()]
+          items[item.slot] = {
+               name = itemInfo["name"],
+               amount = tonumber(item.amount),
+               info = item.info,
+               label = itemInfo["label"],
+               description = itemInfo["description"] and itemInfo["description"] or "",
+               weight = itemInfo["weight"],
+               type = itemInfo["type"],
+               unique = itemInfo["unique"],
+               useable = itemInfo["useable"],
+               image = itemInfo["image"],
+               slot = item.slot,
+          }
+     end
+     return items
+end
+
+function split_oilbarrel_size(size, data)
+     local barrel_max_size = Config.Settings.capacity.oilbarell.size
+
+     local divide = math.floor(size / barrel_max_size)
+     local remainder = size % barrel_max_size
+
+     local items_table = {}
+     for i = 1, divide + 1, 1 do
+          local index = #items_table + 1
+          items_table[index] = {
+               name = "oilbarell",
+               amount = 1,
+               type = "item",
+               slot = i,
+               weight = 1000,
+          }
+
+          if i ~= (divide + 1) then
+               items_table[index].info = {
+                    gal = barrel_max_size,
+                    type = data.type,
+                    avg_gas_octane = 87
+               }
+          else
+               if remainder ~= 0 then
+                    items_table[index].info = {
+                         gal = remainder,
+                         type = data.type,
+                         avg_gas_octane = 87
+                    }
+               end
+          end
+     end
+     return SetCarItemsInfo(items_table)
+end
 
 RegisterNetEvent('keep-oilrig:server:updateSpeed', function(inputData, id)
      local player = QBCore.Functions.GetPlayer(source)
