@@ -2,7 +2,6 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 PlayerJob = {}
 OnDuty = false
-local blips = {}
 local function Draw2DText(content, font, colour, scale, x, y)
      SetTextFont(font)
      SetTextScale(scale, scale)
@@ -86,19 +85,37 @@ function createCustom(coord, o)
      SetBlipColour(blip, o.colour)
      if o.range == 'short' then
           SetBlipAsShortRange(blip, true)
+     else
+          SetBlipAsShortRange(blip, false)
      end
      BeginTextCommandSetBlipName("STRING")
-     AddTextComponentString(o.name)
+     AddTextComponentString(replaceString(o))
      EndTextCommandSetBlipName(blip)
-     table.insert(blips, blip)
      return blip
+end
+
+function replaceString(o)
+     local s = o.name
+     if o.id ~= nil then
+          --  oilwells
+          local oilrig = OilRigs:getById(o.id)
+          s = s:gsub("OILWELLNAME", oilrig.name)
+          s = s:gsub("CITIZENID", oilrig.citizenid)
+          s = s:gsub("OILWELL_HASH", oilrig.oilrig_hash)
+          s = s:gsub("DB_ID_RAW", o.id)
+          s = s:gsub("TYPE", o.type)
+
+     else
+          s = s:gsub("TYPE", o.type)
+     end
+     return s
 end
 
 function createOwnerQbTarget(entity)
      exports['qb-target']:AddEntityZone("oil-rig-" .. entity, entity, {
           name = "oil-rig-" .. entity,
           heading = GetEntityHeading(entity),
-          debugPoly = true,
+          debugPoly = false,
      }, {
           options = {
                {
@@ -146,16 +163,9 @@ end
 function addQbTargetToCoreEntities(entity, Type, PlayerJob)
      local key = Type
      local qbtarget_name = key .. entity
-     print(qbtarget_name)
 
      if PlayerJob.name == 'oilwell' then
           if key == 'storage' then
-               -- createCustom(position.coord, {
-               --      sprite = 478,
-               --      colour = 5,
-               --      range = 'short',
-               --      name = 'Oil ' .. key
-               -- })
                exports['qb-target']:AddEntityZone("storage" .. entity, entity, {
                     name = "storage" .. entity,
                     heading = GetEntityHeading(entity),
@@ -168,6 +178,7 @@ function addQbTargetToCoreEntities(entity, Type, PlayerJob)
                               icon = "fa-solid fa-arrows-spin",
                               label = "View Storage",
                               canInteract = function(entity)
+                                   print(OnDuty)
                                    return true
                               end,
                          },
@@ -175,12 +186,6 @@ function addQbTargetToCoreEntities(entity, Type, PlayerJob)
                     distance = 2.5
                })
           elseif key == 'distillation' then
-               -- createCustom(position.coord, {
-               --      sprite = 467,
-               --      colour = 5,
-               --      range = 'short',
-               --      name = 'Oil ' .. key
-               -- })
                exports['qb-target']:AddEntityZone("distillation" .. entity, entity, {
                     name = "distillation" .. entity,
                     heading = GetEntityHeading(entity),
@@ -200,12 +205,6 @@ function addQbTargetToCoreEntities(entity, Type, PlayerJob)
                     distance = 2.5
                })
           elseif key == 'blender' then
-               -- createCustom(position.coord, {
-               --      sprite = 365,
-               --      colour = 5,
-               --      range = 'short',
-               --      name = 'Oil ' .. key
-               -- })
                exports['qb-target']:AddEntityZone("blender" .. entity, entity, {
                     name = "blender" .. entity,
                     heading = GetEntityHeading(entity),
@@ -225,12 +224,6 @@ function addQbTargetToCoreEntities(entity, Type, PlayerJob)
                     distance = 2.5
                })
           elseif key == 'barrel_withdraw' then
-               -- createCustom(position.coord, {
-               --      sprite = 549,
-               --      colour = 5,
-               --      range = 'short',
-               --      name = 'Oil ' .. key
-               -- })
                exports['qb-target']:AddEntityZone("barrel_withdraw" .. entity, entity, {
                     name = "barrel_withdraw" .. entity,
                     heading = GetEntityHeading(entity),
@@ -253,12 +246,6 @@ function addQbTargetToCoreEntities(entity, Type, PlayerJob)
      end
 
      if key == 'toggle_job' then
-          -- createCustom(position.coord, {
-          --      sprite = 306,
-          --      colour = 5,
-          --      range = 'short',
-          --      name = 'Oil ' .. key
-          -- })
           exports['qb-target']:AddEntityZone("toggle_job" .. entity, entity, {
                name = "toggle_job" .. entity,
                heading = GetEntityHeading(entity),
@@ -300,43 +287,17 @@ RegisterNetEvent('keep-oilrig:client:clearArea', function(coord)
      )
 end)
 
-function removeCoreEntities()
-     for key, value in pairs(CoreEntities) do
-          exports['qb-target']:RemoveZone(value.qbtarget)
-     end
-end
-
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function(PlayerJob)
      if PlayerJob.name == 'oilwell' then
           OnDuty = PlayerJob.onduty
-          if PlayerJob.onduty then
-               addQbTargetForOurCoreEntities()
-          else
-               if next(CoreEntities) ~= nil then
-                    removeCoreEntities()
-               end
-          end
-          return
      end
-
-     removeCoreEntities()
 end)
 
 RegisterNetEvent('keep-oilrig:client:goOnDuty', function(PlayerJob)
      TriggerServerEvent("QBCore:ToggleDuty")
      if PlayerJob.name == 'oilwell' and PlayerJob.onduty == false then
-          addQbTargetForOurCoreEntities()
-          for key, value in pairs(blips) do
-               SetBlipDisplay(
-                    value,
-                    4)
-          end
+          OnDuty = true
      else
-          removeCoreEntities()
-          for key, value in pairs(blips) do
-               SetBlipDisplay(
-                    value,
-                    0)
-          end
+          OnDuty = false
      end
 end)

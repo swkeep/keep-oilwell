@@ -127,6 +127,15 @@ QBCore.Functions.CreateUseableItem('oilbarell', function(source, item)
      print_table(item)
 end)
 
+QBCore.Functions.CreateUseableItem('oilwell', function(source, item)
+     local Player = QBCore.Functions.GetPlayer(source)
+     local RemovedItem = Player.Functions.RemoveItem('oilwell', 1)
+
+     if item.amount >= 1 and RemovedItem == true then
+          TriggerClientEvent('keep-oilrig:client:spawn', source)
+     end
+end)
+
 QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawLoadInTruck', function(source, cb, data)
      if type(data.amount) == "string" then
           data.amount = tonumber(data.amount)

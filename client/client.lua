@@ -16,12 +16,11 @@ function OilRigs:add(s_res, id)
      self.data_table[id] = {}
      self.data_table[id] = s_res
      if self.data_table[id].isOwner == true then
-          createCustom(self.data_table[id].position.coord, {
-               sprite = 436,
-               colour = 5,
-               range = 'short',
-               name = 'Oilwell'
-          })
+          local blip_settings = Config.Settings.oil_well.blip
+          blip_settings.type = 'oil_well'
+          blip_settings.id = id
+
+          createCustom(self.data_table[id].position.coord, blip_settings)
      end
 end
 
@@ -77,6 +76,12 @@ function OilRigs:DynamicSpawner(PlayerJob)
      local object_spawn_distance = 125.0
      local qbtarget_attachment_distance = 10.0
      CreateThread(function()
+          -- create core blips
+          for index, value in pairs(Config.locations) do
+               value.blip.type = index
+               createCustom(value.position, value.blip)
+          end
+
           while true do
                local pedCoord = GetEntityCoords(plyped)
                -- oilwells/pumps
@@ -105,7 +110,6 @@ function OilRigs:DynamicSpawner(PlayerJob)
                               value.Qbtarget = nil
                          end
                     end
-
                end
 
                for index, value in pairs(Config.locations) do
@@ -129,31 +133,13 @@ function OilRigs:DynamicSpawner(PlayerJob)
                          }
                          local entity = spawnObjects(value.model, position)
                          self.core_entities[index].entity = entity
-                         addQbTargetToCoreEntities(entity, index, PlayerJob)
+                         value.Qbtarget = addQbTargetToCoreEntities(entity, index, PlayerJob)
                     elseif distance > object_spawn_distance and self.core_entities[index].entity ~= nil then
-                         DeleteEntity(self.core_entities[index].entity)
-                         print(index .. self.core_entities[index].entity)
                          exports['qb-target']:RemoveZone(index .. self.core_entities[index].entity)
+                         DeleteEntity(self.core_entities[index].entity)
+                         value.Qbtarget = nil
                          self.core_entities[index].entity = nil
                     end
-
-                    -- addQbTargetToCoreEntities(entity, index, PlayerJob)
-                    -- exports['qb-target']:RemoveZone(value.qbtarget)
-                    -- -- attach qbtarget only for players that has this job
-                    -- if distance < qbtarget_attachment_distance and self.data_table[index].entity ~= nil and PlayerJob.name == 'oilwell' then
-                    --      -- add qbtarget
-                    --      if DoesEntityExist(self.data_table[index].entity) == 1 and value.Qbtarget == nil and value.entity ~= 0 then
-                    --           value.Qbtarget = "oil-rig-" .. value.entity
-                    --           createOwnerQbTarget(value.entity)
-                    --      end
-                    -- elseif distance > qbtarget_attachment_distance and self.data_table[index].entity ~= nil and PlayerJob.name == 'oilwell' then
-                    --      -- remove qbtarget if player is far away
-                    --      if DoesEntityExist(self.data_table[index].entity) == 1 and value.Qbtarget ~= nil and value.entity ~= 0 then
-                    --           exports['qb-target']:RemoveZone(value.Qbtarget)
-                    --           value.Qbtarget = nil
-                    --      end
-                    -- end
-
                end
                Wait(1000)
           end
@@ -189,7 +175,6 @@ local function loadData()
      QBCore.Functions.GetPlayerData(function(PlayerData)
           PlayerJob = PlayerData.job
           OnDuty = PlayerData.job.onduty
-
           QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
                for key, value in pairs(result) do
                     OilRigs:add(value, key)
@@ -231,9 +216,16 @@ function spawnObjects(model, position)
           entity,
           true
      )
-     SetEntityInvincible(
+     SetEntityProofs(
           entity,
-          true
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
      )
      return entity
 end
@@ -250,7 +242,7 @@ AddEventHandler('keep-oilrig:client:spawn', function()
                exports['qb-target']:AddEntityZone("oil-rig-" .. entity, entity, {
                     name = "oil-rig-" .. entity,
                     heading = GetEntityHeading(entity),
-                    debugPoly = true,
+                    debugPoly = false,
                }, {
                     options = {
                          {
