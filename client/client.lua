@@ -1,17 +1,18 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
 OBJECT = nil
+local rigmodel = GetHashKey('p_oil_pjack_03_s')
 
 -- class
 OilRigs = {
-     data_table = {}
+     data_table = {}, -- this table holds oilwells data and defined by server
+     core_entities = {} -- this table holds objects that has some functions to them and filled by dynamic spawner
 }
 
 function OilRigs:add(s_res, id)
      if self.data_table[id] ~= nil then
           return
      end
-     -- s_res.entity = NetworkGetEntityFromNetworkId(id)
      self.data_table[id] = {}
      self.data_table[id] = s_res
      if self.data_table[id].isOwner == true then
@@ -22,9 +23,6 @@ function OilRigs:add(s_res, id)
                name = 'Oilwell'
           })
      end
-     self.data_table[id].entity = spawnObjects(self.data_table[id].position)
-
-     self:syncSpeed(self.data_table[id].entity, self.data_table[id].metadata.speed)
 end
 
 function OilRigs:update(s_res, id)
@@ -74,8 +72,95 @@ function OilRigs:readAll()
      return self.data_table
 end
 
---
+function OilRigs:DynamicSpawner(PlayerJob)
+     local plyped = PlayerPedId()
+     local object_spawn_distance = 125.0
+     local qbtarget_attachment_distance = 10.0
+     CreateThread(function()
+          while true do
+               local pedCoord = GetEntityCoords(plyped)
+               -- oilwells/pumps
+               for index, value in pairs(self.data_table) do
+                    local coord = value.position.coord
+                    local distance = GetDistanceBetweenCoords(coord.x, coord.y, coord.z, pedCoord.x, pedCoord.y, pedCoord.z, true)
+                    if distance < object_spawn_distance and self.data_table[index].entity == nil then
+                         self.data_table[index].entity = spawnObjects(rigmodel, self.data_table[index].position)
+                         self:syncSpeed(self.data_table[index].entity, self.data_table[index].metadata.speed)
+                    elseif distance > object_spawn_distance and self.data_table[index].entity ~= nil then
+                         DeleteEntity(self.data_table[index].entity)
+                         self.data_table[index].entity = nil
+                    end
 
+                    -- attach qbtarget only for players that has this job
+                    if distance < qbtarget_attachment_distance and self.data_table[index].entity ~= nil and PlayerJob.name == 'oilwell' then
+                         -- add qbtarget
+                         if DoesEntityExist(self.data_table[index].entity) == 1 and value.Qbtarget == nil and value.entity ~= 0 then
+                              value.Qbtarget = "oil-rig-" .. value.entity
+                              createOwnerQbTarget(value.entity)
+                         end
+                    elseif distance > qbtarget_attachment_distance and self.data_table[index].entity ~= nil and PlayerJob.name == 'oilwell' then
+                         -- remove qbtarget if player is far away
+                         if DoesEntityExist(self.data_table[index].entity) == 1 and value.Qbtarget ~= nil and value.entity ~= 0 then
+                              exports['qb-target']:RemoveZone(value.Qbtarget)
+                              value.Qbtarget = nil
+                         end
+                    end
+
+               end
+
+               for index, value in pairs(Config.locations) do
+                    local distance = GetDistanceBetweenCoords(value.position.x, value.position.y, value.position.z, pedCoord.x, pedCoord.y, pedCoord.z, true)
+                    if self.core_entities[index] == nil then
+                         self.core_entities[index] = {}
+                    end
+
+                    if distance < object_spawn_distance and self.core_entities[index].entity == nil then
+                         local position = {
+                              coord = {
+                                   x = value.position.x,
+                                   y = value.position.y,
+                                   z = value.position.z,
+                              },
+                              rotation = {
+                                   x = value.rotation.x,
+                                   y = value.rotation.y,
+                                   z = value.rotation.z,
+                              }
+                         }
+                         local entity = spawnObjects(value.model, position)
+                         self.core_entities[index].entity = entity
+                         addQbTargetToCoreEntities(entity, index, PlayerJob)
+                    elseif distance > object_spawn_distance and self.core_entities[index].entity ~= nil then
+                         DeleteEntity(self.core_entities[index].entity)
+                         print(index .. self.core_entities[index].entity)
+                         exports['qb-target']:RemoveZone(index .. self.core_entities[index].entity)
+                         self.core_entities[index].entity = nil
+                    end
+
+                    -- addQbTargetToCoreEntities(entity, index, PlayerJob)
+                    -- exports['qb-target']:RemoveZone(value.qbtarget)
+                    -- -- attach qbtarget only for players that has this job
+                    -- if distance < qbtarget_attachment_distance and self.data_table[index].entity ~= nil and PlayerJob.name == 'oilwell' then
+                    --      -- add qbtarget
+                    --      if DoesEntityExist(self.data_table[index].entity) == 1 and value.Qbtarget == nil and value.entity ~= 0 then
+                    --           value.Qbtarget = "oil-rig-" .. value.entity
+                    --           createOwnerQbTarget(value.entity)
+                    --      end
+                    -- elseif distance > qbtarget_attachment_distance and self.data_table[index].entity ~= nil and PlayerJob.name == 'oilwell' then
+                    --      -- remove qbtarget if player is far away
+                    --      if DoesEntityExist(self.data_table[index].entity) == 1 and value.Qbtarget ~= nil and value.entity ~= 0 then
+                    --           exports['qb-target']:RemoveZone(value.Qbtarget)
+                    --           value.Qbtarget = nil
+                    --      end
+                    -- end
+
+               end
+               Wait(1000)
+          end
+     end)
+end
+
+--
 RegisterNetEvent('keep-oilrig:client:changeRigSpeed', function(qbtarget)
      OilRigs:startUpdate(function()
           local rig = OilRigs:getByEntityHandle(qbtarget.entity)
@@ -105,64 +190,12 @@ local function loadData()
           PlayerJob = PlayerData.job
           OnDuty = PlayerData.job.onduty
 
-          createEntityQbTarget(PlayerJob)
-
           QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
                for key, value in pairs(result) do
                     OilRigs:add(value, key)
                end
-               if PlayerJob.name == 'oilwell' and OnDuty then
-                    DistanceTracker()
-               end
+               OilRigs:DynamicSpawner(PlayerJob)
           end)
-     end)
-end
-
-AddEventHandler('onResourceStart', function(resourceName)
-     if (GetCurrentResourceName() ~= resourceName) then
-          return
-     end
-     Wait(500)
-     loadData()
-end)
-
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-     Wait(1500)
-     loadData()
-end)
-
-function giveControlToOwner(entity)
-     createOwnerQbTarget(entity)
-end
-
---- remove/add qbtarget by distance
-function DistanceTracker()
-     CreateThread(function()
-          local rigs = OilRigs:readAll()
-          local plyped = PlayerPedId()
-          while true do
-               for key, value in pairs(rigs) do
-                    if value.entity ~= nil then
-                         local coord = value.position.coord
-                         local pedCoord = GetEntityCoords(plyped)
-                         local distance = GetDistanceBetweenCoords(coord.x, coord.y, coord.z, pedCoord.x, pedCoord.y, pedCoord.z, true)
-                         if distance < 5.0 then
-                              -- add qbtarget
-                              if value.Qbtarget == nil and value.entity ~= 0 then
-                                   value.Qbtarget = "oil-rig-" .. value.entity
-                                   giveControlToOwner(value.entity)
-                              end
-                         elseif distance > 5.0 then
-                              -- remove qbtarget if player is far away
-                              if value.Qbtarget ~= nil and value.entity ~= 0 then
-                                   exports['qb-target']:RemoveZone(value.Qbtarget)
-                                   value.Qbtarget = nil
-                              end
-                         end
-                    end
-               end
-               Wait(1000)
-          end
      end)
 end
 
@@ -185,18 +218,23 @@ RegisterNetEvent('keep-oilrig:client:syncSpeed', function(id, speed)
           end
      end
 end)
-local rigmodel = GetHashKey('p_oil_pjack_03_s')
 
-function spawnObjects(position)
+function spawnObjects(model, position)
      TriggerEvent('keep-oilrig:client:clearArea', position.coord)
      -- every oilwell exist only on client side!
-     local entity = CreateObject(rigmodel, position.coord.x, position.coord.y, position.coord.z, 0, 0, 0)
+     local entity = CreateObject(model, position.coord.x, position.coord.y, position.coord.z, 0, 0, 0)
      while not DoesEntityExist(entity) do
           Wait(10)
      end
-     -- set rotation
      SetEntityRotation(entity, position.rotation.x, position.rotation.y, position.rotation.z, 0.0, true)
-     SetEntityAsMissionEntity(entity, 0, 0) -- #TODO replace it with dynamic spawn based on player position!
+     FreezeEntityPosition(
+          entity,
+          true
+     )
+     SetEntityInvincible(
+          entity,
+          true
+     )
      return entity
 end
 
@@ -265,4 +303,17 @@ RegisterNetEvent('keep-oilrig:client:enterInformation', function(qbtarget)
                end
           end, inputData)
      end
+end)
+
+AddEventHandler('onResourceStart', function(resourceName)
+     if (GetCurrentResourceName() ~= resourceName) then
+          return
+     end
+     Wait(500)
+     loadData()
+end)
+
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+     Wait(1500)
+     loadData()
 end)

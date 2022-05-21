@@ -41,27 +41,33 @@ Config.actionSpeed = 5 -- how fast oilpump actionspeed is updated to new action 
 Config.locations = {
      storage = {
           position = vector4(1710.67, -1662.0, 110.8, 325.22),
+          rotation = vector3(0.0, 0.0, 0.0),
           model = 'prop_storagetank_06',
      },
      distillation = {
           position = vector4(1672.77, -1649.9, 110.2, 10),
+          rotation = vector3(0.0, 0.0, 0.0),
           model = 'v_ind_cm_electricbox',
      },
      blender = {
           position = vector4(1737.56, -1635.58, 111, 190),
+          rotation = vector3(0.0, 0.0, 0.0),
           model = 'prop_storagetank_01',
      },
      barrel_withdraw = {
           position = vector4(1712.23, -1622.53, 111.48, 214.88),
+          rotation = vector3(0.0, 0.0, 0.0),
           model = 'imp_prop_groupbarrel_03',
      },
      -- placeholder
      oil_wellhead = {
           position = vector4(1480.9, -1850.85, 70.1, 246.85),
+          rotation = vector3(0.0, 0.0, 0.0),
           model = 'prop_oil_wellhead_01',
      },
      toggle_job = {
-          position = vector4(1703.5, -1635.18, 111.49, 100.11),
+          position = vector4(1703.5, -1635, 111.49, 100.11),
+          rotation = vector3(0.0, 0.0, 100.0),
           model = 'xm_base_cia_server_02',
      }
 }
