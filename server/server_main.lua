@@ -447,6 +447,7 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:regiserOilrig', function(sou
                oilrig_hash = hash,
                metadata = json.encode(metadata)
           })
+          TriggerClientEvent('keep-oilwell:client:force_reload', -1)
           cb(true)
      else
           TriggerClientEvent('QBCore:Notify', source, "Could not find player by it cid!")

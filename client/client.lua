@@ -297,6 +297,10 @@ RegisterNetEvent('keep-oilrig:client:enterInformation', function(qbtarget)
      end
 end)
 
+RegisterNetEvent('keep-oilwell:client:force_reload', function()
+     loadData()
+end)
+
 AddEventHandler('onResourceStart', function(resourceName)
      if (GetCurrentResourceName() ~= resourceName) then
           return
