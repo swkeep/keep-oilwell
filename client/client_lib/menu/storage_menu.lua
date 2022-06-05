@@ -221,10 +221,10 @@ AddEventHandler('keep-oilrig:storage_menu:Callback', function(data)
                end
 
                -- res >> table of items
-               local SpawnLocation = Config.Delivery.SpawnLocation
-               local TriggerLocation = Config.Delivery.TriggerLocation
-               local DinstanceToTrigger = Config.Delivery.DinstanceToTrigger
-               local model = Config.Delivery.vehicleModel
+               local SpawnLocation = Oilwell_config.Delivery.SpawnLocation
+               local TriggerLocation = Oilwell_config.Delivery.TriggerLocation
+               local DinstanceToTrigger = Oilwell_config.Delivery.DinstanceToTrigger
+               local model = Oilwell_config.Delivery.vehicleModel
 
                MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, res)
           end, data)

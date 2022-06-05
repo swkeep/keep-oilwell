@@ -1,9 +1,9 @@
-Config = Config or {}
+Oilwell_config = Oilwell_config or {}
 
-Config.AnimationSpeedDivider = 20 -- higher value => less animation speed at 100%
-Config.actionSpeed = 5 -- how fast oilpump actionspeed is updated to new action speed / just visual
+Oilwell_config.AnimationSpeedDivider = 20 -- higher value => less animation speed at 100%
+Oilwell_config.actionSpeed = 5 -- how fast oilpump actionspeed is updated to new action speed / just visual
 
-Config.Settings = {
+Oilwell_config.Settings = {
      oil_well = {
           blip = {
                sprite = 436,
@@ -26,7 +26,7 @@ Config.Settings = {
      }
 }
 
-Config.locations = {
+Oilwell_config.locations = {
      storage = {
           position = vector4(1710.67, -1662.0, 110.8, 325.22),
           rotation = vector3(0.0, 0.0, 0.0),
@@ -87,10 +87,21 @@ Config.locations = {
                range = 'short',
                name = 'Oil TYPE'
           }
+     },
+     crude_oil_transport = {
+          position = vector4(1220.0, -2986.0, 4.7, 180),
+          rotation = vector3(0.0, 0.0, 180.0),
+          model = 'prop_oil_wellhead_04',
+          blip = {
+               sprite = 306,
+               colour = 5,
+               range = 'short',
+               name = 'Oil TYPE'
+          }
      }
 }
 
-Config.Delivery = {
+Oilwell_config.Delivery = {
      TriggerLocation = vector3(1737.45, -1691.28, 112.73),
      SpawnLocation = vector4(1741.19, -1694.61, 112.73, 125.57),
      DinstanceToTrigger = 5.0,

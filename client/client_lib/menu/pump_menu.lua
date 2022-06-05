@@ -15,26 +15,31 @@ local function showInfo(data)
                header = 'Speed',
                icon = 'fa-solid fa-gauge',
                txt = "" .. selected_oilrig.speed .. " RPM",
+               disabled = true,
           },
           {
                header = 'Duration',
                icon = 'fa-solid fa-clock',
                txt = "" .. duration .. " Min",
+               disabled = true,
           },
           {
                header = 'Temperature',
                icon = 'fa-solid fa-temperature-high',
                txt = "" .. selected_oilrig.temp .. " °C",
+               disabled = true,
           },
           {
                header = 'Oil Storage',
                icon = 'fa-solid fa-oil-can',
-               txt = "" .. selected_oilrig.oil_storage .. "/Gal"
+               txt = "" .. selected_oilrig.oil_storage .. "/Gal",
+               disabled = true,
           },
           {
                header = 'Part Info',
                icon = 'fa-solid fa-oil-can',
                txt = partInfoString,
+               disabled = true,
           },
           {
                header = 'Pump oil to storage',

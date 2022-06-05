@@ -242,6 +242,25 @@ function addQbTargetToCoreEntities(entity, Type, PlayerJob)
                     },
                     distance = 2.5
                })
+          elseif key == 'crude_oil_transport' then
+               exports['qb-target']:AddEntityZone("crude_oil_transport" .. entity, entity, {
+                    name = "barrel_withdraw" .. entity,
+                    heading = GetEntityHeading(entity),
+                    debugPoly = false,
+               }, {
+                    options = {
+                         {
+                              type = "client",
+                              event = "",
+                              icon = "fa-solid fa-boxes-packing",
+                              label = "Fill transport well",
+                              canInteract = function(entity)
+                                   return true
+                              end,
+                         },
+                    },
+                    distance = 2.5
+               })
           end
      end
 

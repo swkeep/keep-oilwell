@@ -108,16 +108,35 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:withdraw_from_queue', functi
           cb(false)
           return
      end
+
+     local barrel_max_size = Oilwell_config.Settings.capacity.oilbarell.size
      for key, barrel in pairs(storage.metadata.queue) do
-          player.Functions.RemoveMoney('bank', Config.Settings.capacity.oilbarell.price, 'oil barell')
-          player.Functions.AddItem('oilbarell', 1, 1, {
-               type = barrel.type,
-               gal = barrel.gal,
-               avg_gas_octane = barrel.avg_gas_octane
-          })
+          player.Functions.RemoveMoney('bank', Oilwell_config.Settings.capacity.oilbarell.price, 'oil barell')
+
+          local divide = math.floor(barrel.gal / barrel_max_size)
+          local remainder = barrel.gal % barrel_max_size
+
+          for i = 1, divide + 1, 1 do
+               if i ~= (divide + 1) then
+                    player.Functions.AddItem('oilbarell', 1, 1, {
+                         type = barrel.type,
+                         gal = barrel_max_size,
+                         avg_gas_octane = barrel.avg_gas_octane
+                    })
+               else
+                    if remainder ~= 0 then
+                         player.Functions.AddItem('oilbarell', 1, 1, {
+                              type = barrel.type,
+                              gal = remainder,
+                              avg_gas_octane = barrel.avg_gas_octane
+                         })
+                    end
+               end
+          end
+
           TriggerClientEvent('QBCore:Notify', source, "Request compeleted!", 'success')
           cb(storage)
-          storage.metadata.queue[key] = nil
+          -- storage.metadata.queue[key] = nil
           return
      end
 end)
@@ -159,7 +178,7 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:WithdrawLoadInTruck', functi
                return
           end
 
-          local RemoveMoney = player.Functions.RemoveMoney('bank', Config.Settings.capacity.truck.price, 'oil barell truck')
+          local RemoveMoney = player.Functions.RemoveMoney('bank', Oilwell_config.Settings.capacity.truck.price, 'oil barell truck')
           if RemoveMoney ~= true then
                TriggerClientEvent('QBCore:Notify', source, "you don't have enough money in your bank!", 'error')
                cb(false)
@@ -193,7 +212,7 @@ local function SetCarItemsInfo(ouritems)
 end
 
 function split_oilbarrel_size(size, data)
-     local barrel_max_size = Config.Settings.capacity.oilbarell.size
+     local barrel_max_size = Oilwell_config.Settings.capacity.oilbarell.size
 
      local divide = math.floor(size / barrel_max_size)
      local remainder = size % barrel_max_size
@@ -230,18 +249,23 @@ end
 
 RegisterNetEvent('keep-oilrig:server:updateSpeed', function(inputData, id)
      local player = QBCore.Functions.GetPlayer(source)
-     if player ~= nil then
-          -- validate speed for 0 - 100
-          local oilrig = GlobalScirptData:read(id)
-          if player.PlayerData.citizenid == oilrig.citizenid then
-               local speed = tonumber(inputData.speed)
-               oilrig.metadata.speed = speed
-               -- sync speed on other clients
-               TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, id, speed)
-          else
-               TriggerClientEvent('QBCore:Notify', source, "You are not owner of oil pump!")
-          end
+     if player == nil then return end
+     -- validate speed for 0 - 100
+     local oilrig = GlobalScirptData:read(id)
+     if player.PlayerData.citizenid ~= oilrig.citizenid then
+          TriggerClientEvent('QBCore:Notify', source, "You are not owner of oil pump!")
+          return
      end
+
+     local speed = tonumber(inputData.speed)
+     if not (0 <= speed and speed <= 100) then
+          TriggerClientEvent('QBCore:Notify', source, 'speed must be between 0 to 100', "error")
+          return
+     end
+
+     oilrig.metadata.speed = speed
+     -- sync speed on other clients
+     TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, id, speed)
 end)
 
 QBCore.Functions.CreateCallback('keep-oilrig:server:get_CDU_Data', function(source, cb)
