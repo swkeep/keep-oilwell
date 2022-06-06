@@ -100,3 +100,9 @@ function Round(num, dp)
      local mult = 10 ^ (dp or 0)
      return math.floor(num * mult + 0.5) / mult
 end
+
+function Tablelength(T)
+     local count = 0
+     for _ in pairs(T) do count = count + 1 end
+     return count
+end

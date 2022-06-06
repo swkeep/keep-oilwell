@@ -302,3 +302,15 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
      Wait(1500)
      loadData()
 end)
+
+RegisterNetEvent('keep-oilrig:client:local_mail_sender', function(data)
+     local Lang = Oilwell_config.Locale
+     local price = data.transport_price * data.amount
+     Lang.mail.message = string.format(Lang.mail.message, data.gender, data.charinfo.lastname, price, data.amount)
+     TriggerServerEvent('qb-phone:server:sendNewMail', {
+          sender = Lang.mail.sender,
+          subject = Lang.mail.subject,
+          message = Lang.mail.message,
+          button = {}
+     })
+end)

@@ -108,6 +108,24 @@ Oilwell_config.Delivery = {
      vehicleModel = 'rallytruck'
 }
 
+Oilwell_config.Transport = {
+     max_stock = 100000, --gal
+     price = 0.5, --per gal
+}
+
+-- Make separate file for locale
+Oilwell_config.Locale = {
+     mail = {
+          sender = 'Oil Company',
+          subject = 'Payment Receipt',
+          message = 'Dear %s %s, <br /><br />This email is a copy of Payment Receipt.<br />Your payment was: <strong>%.2f$</strong><br />Sold amount : <strong> %d (gal)</strong><br />'
+     },
+     info = {
+          mr = 'Mr.',
+          mrs = 'Mrs.',
+     }
+}
+
 -- prop_barrel_exp_01a.yft ron
 -- prop_barrel_exp_01b.yft glob oil
 

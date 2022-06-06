@@ -377,6 +377,122 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:recipe_blender', function(so
      cb(blender)
 end)
 
+local current_transport_stock = 0
+local TRANSPORT = Oilwell_config.Transport
+
+local function change_item_info(Player, slot, info)
+     if Player.PlayerData.items[slot] then
+          Player.PlayerData.items[slot].info = info
+     end
+     Player.Functions.SetInventory(Player.PlayerData.items, true)
+end
+
+QBCore.Functions.CreateCallback('keep-oilrig:server:oil_transport:fillTransportWell', function(source, cb, amount)
+     amount = tonumber(amount) -- just in case
+     local player = QBCore.Functions.GetPlayer(source)
+     local oil_barrel = player.Functions.GetItemByName('oilbarell')
+     local msg_string = ""
+
+     if not oil_barrel then
+          TriggerClientEvent('QBCore:Notify', source, 'You do not have a oil barrel!', 'error')
+          return
+     end
+
+     local current_info = oil_barrel.info
+     local do_we_need_more_stock = current_transport_stock + amount
+
+     if not current_info.type then
+          TriggerClientEvent('QBCore:Notify', source, 'Failed to get oil type', 'error')
+          return
+     end
+
+     if not current_info.type == 'crudeOil' then
+          TriggerClientEvent('QBCore:Notify', source, 'We are experts in crude oil transportation!', 'error')
+          return
+     end
+
+     if TRANSPORT.max_stock <= current_transport_stock then
+          -- when we reached max stock
+          TriggerClientEvent('QBCore:Notify', source, 'Currently we can not accept more offers pls come back later!', 'primary')
+          current_transport_stock = TRANSPORT.max_stock
+          return
+     end
+
+     if do_we_need_more_stock > TRANSPORT.max_stock then
+          -- when buying results in more oil than what we need
+          local max_amount = math.floor(TRANSPORT.max_stock - current_transport_stock)
+          msg_string = "We can only accept maximum amount of %d gallons"
+          msg_string = string.format(msg_string, max_amount)
+          TriggerClientEvent('QBCore:Notify', source, '', 'error')
+          return
+     end
+
+     if current_info.gal < amount then
+          -- when they don't have what they want to sell
+          msg_string = 'You asked to sell:  %d but only have: %d'
+          msg_string = string.format(msg_string, amount, current_info.gal)
+          TriggerClientEvent('QBCore:Notify', source, msg_string, 'error')
+          cb(false)
+          return
+     end
+
+     if current_info.gal > amount then
+          -- asking less than what they have
+          current_info.gal = math.floor(current_info.gal - amount)
+          -- this function can be called just once after conditions but this should prevent switching slots
+          change_item_info(player, oil_barrel.slot, oil_barrel.info)
+
+          player.Functions.AddMoney("bank", TRANSPORT.price * amount, 'crude_oil_transport')
+
+          msg_string = 'You sold: %d gal for: %.2f$'
+          msg_string = string.format(msg_string, amount, TRANSPORT.price * amount)
+          TriggerClientEvent('QBCore:Notify', source, msg_string, 'success')
+     elseif current_info.gal == amount and amount ~= 0 then
+          -- asking for all they have
+          current_info.gal = 0
+          -- this function can be called just once after conditions but this should prevent switching slots
+          change_item_info(player, oil_barrel.slot, oil_barrel.info)
+
+          player.Functions.AddMoney("bank", TRANSPORT.price * amount, 'crude_oil_transport')
+          msg_string = 'You sold: %d gal for: %.2f$'
+          msg_string = string.format(msg_string, amount, TRANSPORT.price * amount)
+          TriggerClientEvent('QBCore:Notify', source, msg_string, 'success')
+     else
+          -- invalid
+          -- or they ask for much more than they have
+          TriggerClientEvent('QBCore:Notify', source, 'You either do not have a oil barell or its empty!', 'error')
+          cb(false)
+          return
+     end
+
+     local gender = Oilwell_config.Locale.info.mr
+     if player.PlayerData.charinfo.gender == 1 then
+          gender = Oilwell_config.Locale.info.mrs
+     end
+     local charinfo = player.PlayerData.charinfo
+
+     TriggerClientEvent('keep-oilrig:client:local_mail_sender', source, {
+          gender = gender,
+          charinfo = charinfo,
+          transport_price = TRANSPORT.price,
+          amount = amount
+     })
+     current_transport_stock = current_transport_stock + amount
+     cb(true)
+end)
+
+RegisterServerEvent('keep-oilrig:server:oil_transport:fillTransportWell:give_money')
+AddEventHandler('keep-oilrig:server:oil_transport:fillTransportWell:give_money', function(cid, amount)
+     local player = QBCore.Functions.GetPlayer(cid)
+     player.Functions.AddMoney("bank", TRANSPORT.price * amount, 'crude_oil_transport')
+end)
+
+RegisterNetEvent('keep-oilrig:server:oil_transport:checkPrice', function()
+     local msg_string = "Our Current Stock is: %d/%d Price Per Gal: %.2f$"
+     msg_string = string.format(msg_string, math.floor(current_transport_stock), TRANSPORT.max_stock, TRANSPORT.price)
+     TriggerClientEvent('QBCore:Notify', source, msg_string)
+end)
+
 -- =======================================
 --          Send Data / to Client
 -- =======================================
