@@ -348,14 +348,45 @@ function DataManipulations_metadata_oil_well(oil_well)
           oil_well.metadata.duration = oil_well.metadata.duration + 1
           oil_well.metadata.secduration = oil_well.metadata.duration
           if oil_well.metadata.temp ~= nil and pumpOverHeat >= oil_well.metadata.temp then
-               oil_well.metadata.temp = tempGrowth(oil_well.metadata.temp, oil_well.metadata.speed, 'increase', pumpOverHeat)
+               oil_well.metadata.temp = tempGrowth(oil_well.metadata.temp, oil_well.metadata.speed, 'increase',
+                    pumpOverHeat)
                oil_well.metadata.temp = Round(oil_well.metadata.temp, 2)
           else
                oil_well.metadata.temp = pumpOverHeat
           end
-          if oil_well.metadata.temp > 50 and oil_well.metadata.temp < (pumpOverHeat - 25) and oil_well.metadata.oil_storage <= 300 then
+          if oil_well.metadata.temp > 50 and oil_well.metadata.temp < (pumpOverHeat - 25) and
+              oil_well.metadata.oil_storage <= 300 then
                oil_well.metadata.oil_storage = oil_well.metadata.oil_storage + (0.1 * (oil_well.metadata.speed / 50))
           end
+
+          -- parts functions
+          if oil_well.metadata.speed ~= 0 and oil_well.metadata.part_info.belt ~= 0 then
+               local res = oil_well.metadata.part_info.belt - (0.1 * (oil_well.metadata.speed / 50))
+               oil_well.metadata.part_info.belt = Round(res, 2)
+          elseif oil_well.metadata.part_info.belt <= 0 then
+               oil_well.metadata.part_info.belt = 0
+               oil_well.metadata.speed = 0
+               TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
+          end
+
+          if oil_well.metadata.speed ~= 0 and oil_well.metadata.part_info.polish ~= 0 then
+               local res = oil_well.metadata.part_info.polish - (0.1 * (oil_well.metadata.speed / 40))
+               oil_well.metadata.part_info.polish = Round(res, 2)
+          elseif oil_well.metadata.part_info.polish <= 0 then
+               oil_well.metadata.part_info.polish = 0
+               oil_well.metadata.speed            = 0
+               TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
+          end
+
+          if oil_well.metadata.speed ~= 0 and oil_well.metadata.part_info.clutch ~= 0 then
+               local res = oil_well.metadata.part_info.clutch - (0.1 * (oil_well.metadata.speed / 35))
+               oil_well.metadata.part_info.clutch = Round(res, 2)
+          elseif oil_well.metadata.part_info.clutch <= 0 then
+               oil_well.metadata.part_info.clutch = 0
+               oil_well.metadata.speed = 0
+               TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
+          end
+
      else
           -- reset duration
           if oil_well.metadata.duration ~= 0 then
@@ -364,7 +395,8 @@ function DataManipulations_metadata_oil_well(oil_well)
           -- start cooling procces
           if oil_well.metadata.secduration > 0 then
                oil_well.metadata.secduration = oil_well.metadata.secduration - 1
-               oil_well.metadata.temp = tempGrowth(oil_well.metadata.temp, oil_well.metadata.speed, 'decrease', pumpOverHeat)
+               oil_well.metadata.temp = tempGrowth(oil_well.metadata.temp, oil_well.metadata.speed, 'decrease',
+                    pumpOverHeat)
                oil_well.metadata.temp = Round(oil_well.metadata.temp, 2)
           elseif oil_well.metadata.secduration == 0 then
                oil_well.metadata.temp = 0

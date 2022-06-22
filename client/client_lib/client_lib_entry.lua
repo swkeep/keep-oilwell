@@ -1,7 +1,5 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-PlayerJob = {}
-OnDuty = false
 local function Draw2DText(content, font, colour, scale, x, y)
      SetTextFont(font)
      SetTextScale(scale, scale)
@@ -112,10 +110,13 @@ function replaceString(o)
 end
 
 function createOwnerQbTarget(entity)
-     exports['qb-target']:AddEntityZone("oil-rig-" .. entity, entity, {
+     local coord = GetEntityCoords(entity)
+     exports['qb-target']:AddBoxZone("oil-rig-" .. entity, coord, 3, 5, {
           name = "oil-rig-" .. entity,
           heading = GetEntityHeading(entity),
-          debugPoly = false,
+          debugPoly = true,
+          minZ = coord.z,
+          maxZ = coord.z + 3,
      }, {
           options = {
                {
@@ -143,7 +144,7 @@ function createOwnerQbTarget(entity)
                },
                {
                     type = "client",
-                    event = "",
+                    event = "keep-oilrig:client:show_oilwell_stash",
                     icon = "fa-solid fa-gears",
                     label = "Manange Parts",
                     canInteract = function(entity)
@@ -154,6 +155,9 @@ function createOwnerQbTarget(entity)
                               return false
                          end
                     end,
+                    -- action = function(entity)
+                    --      TriggerEvent('keep-oilrig:client:show_oilwell_stash', entity)
+                    -- end
                },
           },
           distance = 2.5

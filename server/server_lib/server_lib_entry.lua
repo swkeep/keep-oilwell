@@ -84,7 +84,8 @@ local rest = {
      },
      amount = 1,
      shouldClose = true,
-     useable = false, type = 'item' }
+     useable = false, type = 'item'
+}
 
 function tempGrowth(tmp, speed, Type, max)
      if tmp == nil then

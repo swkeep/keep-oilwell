@@ -1,31 +1,38 @@
 ![Keep oilwell](https://raw.githubusercontent.com/swkeep/keep-oilwell/main/.github/images/banner2.png)
 
 # Dependencies
-* [qb-target](https://github.com/BerkieBb/qb-target)
-* [qb-menu](https://github.com/qbcore-framework/qb-menu)
-* [polyzone](https://github.com/qbcore-framework/PolyZone)
+
+- [qb-target](https://github.com/BerkieBb/qb-target)
+- [qb-menu](https://github.com/qbcore-framework/qb-menu)
+- [polyzone](https://github.com/qbcore-framework/PolyZone)
 
 # Key Features
-* Kinda NoPixel inspired oil company (of course not complete as their version)
-* Owning oilwell
-* ...
 
-# Missing Features
-* Storage action
-* Acually using products!
-* and all things i didn't think of! 
+- Kinda NoPixel inspired oil company (of course not complete as their version)
+- Owning oilwell
+- ...
+
+## New patch
+
+- To be able to operate oilwells players must be on duty
+- Oilwells now take damege and player should fix them or they will stop working
+- new items to fix oilwells
 
 ## Usage
-* add oilwell by "/create oilwell" and then place and asign it to a player.
+
+- add oilwell by "/create oilwell" and then place and asign it to a player.
 
 ## Installation
-* IMPORTANT: This project is a WIP project of mine(as always) so expect too many bugs :)
+
 ## Step 0:
-* import sql.sql in your database 
+
+- import sql.sql in your database
 
 ## Step 1:
-** qb-core shared items.lua
-```lua 
+
+\*\* qb-core shared items.lua
+
+```lua
 ["oilbarell"] = {
 		["name"] = "oilbarell",
 		["label"] = "Oil barell",
@@ -52,21 +59,73 @@
 		["description"] = "Oilwell"
 }
 	,
-["oilwellbelt"] = {
-		["name"] = "oilwellbelt",
-		["label"] = "oilwellbelt",
+	["reliefvalvestring"]       = {
+		["name"] = "reliefvalvestring",
+		["label"] = "Relief Valve String",
 		["weight"] = 1000,
 		["type"] = "item",
-		["image"] = "oilwellbelt.png",
+		["image"] = "relief_valve_string.png",
 		["unique"] = false,
 		["useable"] = true,
 		["shouldClose"] = true,
 		["combinable"] = nil,
-		["description"] = "oilwellbelt"
-}
+		["description"] = "Relief Valve String"
+	},
+	["oilfilter"]               = {
+		["name"] = "oilfilter",
+		["label"] = "Oil Filter",
+		["weight"] = 1000,
+		["type"] = "item",
+		["image"] = "oil_filter.png",
+		["unique"] = false,
+		["useable"] = true,
+		["shouldClose"] = true,
+		["combinable"] = nil,
+		["description"] = "Oil Filter"
+	},
+	["skewgear"]                = {
+		["name"] = "skewgear",
+		["label"] = "Skew Gear",
+		["weight"] = 1000,
+		["type"] = "item",
+		["image"] = "skew_gear.png",
+		["unique"] = false,
+		["useable"] = true,
+		["shouldClose"] = true,
+		["combinable"] = nil,
+		["description"] = "Skew Gear"
+	},
+	["timingchain"]             = {
+		["name"] = "timingchain",
+		["label"] = "Timing Chain",
+		["weight"] = 1000,
+		["type"] = "item",
+		["image"] = "timing_chain.png",
+		["unique"] = false,
+		["useable"] = true,
+		["shouldClose"] = true,
+		["combinable"] = nil,
+		["description"] = "Timing Chain"
+	},
+	["driveshaft"]              = {
+		["name"] = "driveshaft",
+		["label"] = "Drive Shaft",
+		["weight"] = 1000,
+		["type"] = "item",
+		["image"] = "drive_shaft.png",
+		["unique"] = false,
+		["useable"] = true,
+		["shouldClose"] = true,
+		["combinable"] = nil,
+		["description"] = "Drive Shaft"
+	},
+
 ```
+
 ## Step 2:
-** qb-core shared jobs.lua
+
+\*\* qb-core shared jobs.lua
+
 ```lua
 ['oilwell'] = {
         label = 'Oil Company',
@@ -100,9 +159,9 @@
 
 ## Step 3: tooltip
 
-* i'm using lj-inventory and it's just reskin of qb-inventory.
-* in inventory\js\app.js find FormatItemInfo() there is if statement like: if (itemData.name == "id_card")
-* track where all of elseif statments are ended then add else if below.
+- i'm using lj-inventory and it's just reskin of qb-inventory.
+- in inventory\js\app.js find FormatItemInfo() there is if statement like: if (itemData.name == "id_card")
+- track where all of elseif statments are ended then add else if below.
 
 ```javascript
 else if (itemData.name == "oilbarell") {
@@ -120,5 +179,3 @@ else if (itemData.name == "oilbarell") {
 ![Keep oilwell](https://raw.githubusercontent.com/swkeep/keep-oilwell/main/.github/images/screenshots/2022-05-17-16_01_09-000281.jpg)
 ![Keep oilwell](https://raw.githubusercontent.com/swkeep/keep-oilwell/main/.github/images/screenshots/2022-05-17-16_01_11-000282.jpg)
 ![Keep oilwell](https://raw.githubusercontent.com/swkeep/keep-oilwell/main/.github/images/screenshots/2022-05-17-16_01_13-000283.jpg)
-
-
