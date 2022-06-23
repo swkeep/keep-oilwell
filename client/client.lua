@@ -317,11 +317,6 @@ AddEventHandler('onResourceStart', function(resourceName)
      end)
 end)
 
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-     Wait(1500)
-     loadData()
-end)
-
 RegisterNetEvent('keep-oilrig:client:local_mail_sender', function(data)
      local Lang = Oilwell_config.Locale
      local price = data.transport_price * data.amount
@@ -335,6 +330,7 @@ RegisterNetEvent('keep-oilrig:client:local_mail_sender', function(data)
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+     Wait(3000)
      QBCore.Functions.GetPlayerData(function(PlayerData)
           PlayerJob = PlayerData.job
           if PlayerJob.name == 'oilwell' then

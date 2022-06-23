@@ -114,7 +114,7 @@ function createOwnerQbTarget(entity)
      exports['qb-target']:AddBoxZone("oil-rig-" .. entity, coord, 3, 5, {
           name = "oil-rig-" .. entity,
           heading = GetEntityHeading(entity),
-          debugPoly = true,
+          debugPoly = false,
           minZ = coord.z,
           maxZ = coord.z + 3,
      }, {
