@@ -7,7 +7,7 @@ local function showStorage(storage_data)
           {
                header = header,
                isMenuHeader = true,
-               icon = 'fa-solid fa-pump'
+               icon = 'fa-solid fa-warehouse'
           }, {
                header = 'Crude oil',
                icon = 'fa-solid fa-oil-can',
@@ -23,7 +23,7 @@ local function showStorage(storage_data)
           {
                header = 'Gasoline',
                icon = 'fa-solid fa-oil-can',
-               txt = "" .. storage_data.metadata.gasoline .. " /gal",
+               txt = "" .. storage_data.metadata.gasoline .. " /gal | Octane: " .. storage_data.metadata.avg_gas_octane,
                params = {
                     event = 'keep-oilrig:storage_menu:StorageActions',
                     args = {
@@ -32,11 +32,30 @@ local function showStorage(storage_data)
                     }
                }
           },
-          {
-               header = 'leave',
+
+     }
+
+     if storage_data.metadata.fuel_oil then
+          openMenu[#openMenu + 1] = {
+               header = 'Fuel Oil',
+               icon = 'fa-solid fa-oil-can',
+               txt = "" .. storage_data.metadata.fuel_oil .. " /gal",
                params = {
-                    event = "qb-menu:closeMenu"
+                    event = 'keep-oilrig:storage_menu:StorageActions',
+                    args = {
+                         type = 'fuel_oil',
+                         storage_data = storage_data
+                    }
                }
+          }
+     end
+
+
+     openMenu[#openMenu + 1] = {
+          header = 'leave',
+          icon = 'fa-solid fa-circle-xmark',
+          params = {
+               event = "qb-menu:closeMenu"
           }
      }
 
@@ -100,9 +119,10 @@ local function showStorageWithdraw(data)
                params = {
                     event = 'keep-oilrig:storage_menu:Callback',
                     args = {
-                         eventName = 'keep-oilrig:server:WithdrawWithBarrel',
+                         eventName = 'keep-oilrig:server:Withdraw',
                          citizenid = data.storage_data.citizenid,
-                         type = data.type
+                         type = data.type,
+                         truck = false
                     }
                }
           },
@@ -113,9 +133,10 @@ local function showStorageWithdraw(data)
                params = {
                     event = 'keep-oilrig:storage_menu:Callback',
                     args = {
-                         eventName = 'keep-oilrig:server:WithdrawLoadInTruck',
+                         eventName = 'keep-oilrig:server:Withdraw',
                          citizenid = data.storage_data.citizenid,
-                         type = data.type
+                         type = data.type,
+                         truck = true
                     }
                }
           },
@@ -135,11 +156,13 @@ MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
      local plyped = PlayerPedId()
      local pedCoord = GetEntityCoords(plyped)
      local finished = false
-     local distance = GetDistanceBetweenCoords(pedCoord.x, pedCoord.y, pedCoord.z, TriggerLocation.x, TriggerLocation.y, TriggerLocation.z, true)
+     local distance = GetDistanceBetweenCoords(pedCoord.x, pedCoord.y, pedCoord.z, TriggerLocation.x, TriggerLocation.y,
+          TriggerLocation.z, true)
      CreateThread(function()
           while distance > DinstanceToTrigger do
                local pedCoord = GetEntityCoords(plyped)
-               distance = GetDistanceBetweenCoords(pedCoord.x, pedCoord.y, pedCoord.z, TriggerLocation.x, TriggerLocation.y, TriggerLocation.z, true)
+               distance = GetDistanceBetweenCoords(pedCoord.x, pedCoord.y, pedCoord.z, TriggerLocation.x,
+                    TriggerLocation.y, TriggerLocation.z, true)
                Wait(1000)
           end
           finished = true
@@ -147,7 +170,8 @@ MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
 
      -- wait for player at delivery coord
      while finished == false do
-          DrawMarker(2, TriggerLocation.x, TriggerLocation.y, TriggerLocation.z + 2, 0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 1.0, 1.0,
+          DrawMarker(2, TriggerLocation.x, TriggerLocation.y, TriggerLocation.z + 2, 0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 1.0
+               , 1.0,
                1.0, 255, 128, 0, 50, false, true, 2, nil, nil, false)
           Wait(0)
      end
@@ -162,18 +186,21 @@ MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
      local veh = CreateVehicle(model, Coord.x, Coord.y, Coord.z, Coord.w, true, false)
      local netid = NetworkGetNetworkIdFromEntity(veh)
      SetVehicleHasBeenOwnedByPlayer(veh, true)
-     TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(veh))
 
      SetNetworkIdCanMigrate(netid, true)
      SetVehicleNeedsToBeHotwired(veh, false)
      SetVehRadioStation(veh, "OFF")
 
      SetVehicleNumberPlateText(veh, vehiclePlate)
-     -- TaskWarpPedIntoVehicle(plyped, veh, -1)
-     -- exports['LegacyFuel']:SetFuel(veh, math.random(80, 90))
+
+     exports[Oilwell_config.fuel_script]:SetFuel(veh, math.random(80, 90))
      SetVehicleEngineOn(veh, true, true)
 
      TriggerServerEvent('inventory:server:addTrunkItems', vehiclePlate, items)
+
+     SetNetworkIdAlwaysExistsForPlayer(NetworkGetNetworkIdFromEntity(veh), PlayerPedId(), true)
+     TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(veh))
+     TriggerEvent("vehiclekeys:client:SetOwner", vehiclePlate)
 
      SetModelAsNoLongerNeeded(model)
 end
@@ -213,20 +240,63 @@ AddEventHandler('keep-oilrig:storage_menu:Callback', function(data)
           end
           data.amount = inputData.amount
           QBCore.Functions.TriggerCallback(data.eventName, function(res)
-               if res == false then
-                    return
-               end
-               if data.eventName ~= 'keep-oilrig:server:WithdrawLoadInTruck' then
-                    return
-               end
 
-               -- res >> table of items
-               local SpawnLocation = Oilwell_config.Delivery.SpawnLocation
-               local TriggerLocation = Oilwell_config.Delivery.TriggerLocation
-               local DinstanceToTrigger = Oilwell_config.Delivery.DinstanceToTrigger
-               local model = Oilwell_config.Delivery.vehicleModel
-
-               MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, res)
           end, data)
      end
+end)
+
+
+-- withdraw spot
+AddEventHandler("keep-oilwell:client:openWithdrawStash", function(data)
+     local player = QBCore.Functions.GetPlayerData()
+     if not data then return end
+     local settings = { maxweight = 100000, slots = 5 }
+     TriggerServerEvent("inventory:server:OpenInventory", "stash", "Withdraw_" .. player.citizenid, settings)
+     TriggerEvent("inventory:client:SetCurrentStash", "Withdraw_" .. player.citizenid)
+end)
+
+-- purge menu
+local function purge_menu()
+     local openMenu = {
+          {
+               header = 'PURGE',
+               txt = 'do you want to purge withdraw stash?',
+               icon = 'fa-solid fa-trash-can',
+               isMenuHeader = true,
+          },
+          {
+               header = 'Confirm Purge!',
+               icon = 'fa-solid fa-square-check',
+               params = {
+                    event = 'keep-oilwell:client:purgeWithdrawStash',
+               }
+          },
+          {
+               header = 'Cancel',
+               icon = 'fa-solid fa-circle-xmark',
+               params = {
+                    event = "qb-menu:closeMenu"
+               }
+          }
+     }
+     exports['qb-menu']:openMenu(openMenu)
+end
+
+AddEventHandler('keep-oilwell:client:open_purge_menu', function()
+     purge_menu()
+end)
+
+local purge_conf = 0
+AddEventHandler('keep-oilwell:client:purgeWithdrawStash', function()
+     if purge_conf == 0 then
+          QBCore.Functions.Notify('Try again to confirm Purge! (confirmation will reset in 5sec)', "primary")
+          purge_conf = purge_conf + 1
+          SetTimeout(5000, function()
+               purge_conf = 0
+          end)
+          purge_menu()
+          return
+     end
+     purge_conf = 0
+     TriggerServerEvent('keep-oilwell:server:purgeWithdrawStash')
 end)

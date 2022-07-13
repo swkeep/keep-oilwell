@@ -1,4 +1,5 @@
-local menu = MenuV:CreateMenu(false, 'Swkeep Oilwell Menu', 'topright', 0, 0, 0, 'size-125', 'default', 'menuv', 'swkeep_oilwell')
+local menu = MenuV:CreateMenu(false, 'Swkeep Oilwell Menu', 'topright', 0, 0, 0, 'size-125', 'default', 'menuv',
+     'swkeep_oilwell')
 menu.Title = ('Entity: %s'):format(OBJECT)
 
 local slider = menu:AddSlider({ icon = '❓', label = 'Accuracy', value = '', values = {
@@ -71,4 +72,13 @@ range3:On('change', function(item, newValue, oldValue)
      SetEntityRotation(OBJECT, 0.0 + newValue * 3, roration.y, roration.z, 0.0, true)
 end)
 
-menu:OpenWith('KEYBOARD', 'o')
+local isOpen = false
+AddEventHandler('keep-oilwell:menu:OPENMENU', function()
+     if not IsPauseMenuActive() and IsNuiFocused() ~= 1 and not isOpen then
+          MenuV:OpenMenu(menu)
+          isOpen = true
+     elseif isOpen == true then
+          MenuV:CloseMenu(menu)
+          isOpen = false
+     end
+end)

@@ -55,6 +55,7 @@ local function showInfo(data)
           },
           {
                header = 'leave',
+               icon = 'fa-solid fa-circle-xmark',
                params = {
                     event = "qb-menu:closeMenu"
                }
@@ -106,6 +107,7 @@ local function show_oilwell_stash(data)
           },
           {
                header = 'leave',
+               icon = 'fa-solid fa-circle-xmark',
                params = {
                     event = "qb-menu:closeMenu"
                }

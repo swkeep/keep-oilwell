@@ -1,9 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
 local function showCDU(data)
-     if data == false then
-          return
-     end
+     if not data then return end
      local state = ''
      if data.metadata.state == true then
           state = 'Active'
@@ -52,7 +50,7 @@ local function showCDU(data)
           },
           {
                header = 'leave',
-               icon = 'fa-solid fa-angle-left',
+               icon = 'fa-solid fa-circle-xmark',
                params = {
                     event = "qb-menu:closeMenu"
                }
@@ -108,7 +106,13 @@ AddEventHandler('keep-oilrig:CDU_menu:pumpCrudeOil_to_CDU', function()
           }
      })
      if inputData then
+          inputData.amount = tonumber(inputData.amount)
           if not inputData.amount then
+               return
+          end
+
+          if inputData.amount <= 0 then
+               QBCore.Functions.Notify('Amount must be more than 0', "error")
                return
           end
           QBCore.Functions.TriggerCallback('keep-oilrig:server:pumpCrudeOil_to_CDU', function(result)

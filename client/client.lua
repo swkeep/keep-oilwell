@@ -1,12 +1,21 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-PlayerJob = nil
+PlayerJob = {}
 OnDuty = nil
 OBJECT = nil
 local rigmodel = GetHashKey('p_oil_pjack_03_s')
 
+function CheckJob()
+     return (PlayerJob.name == 'oilwell')
+end
+
+function CheckOnduty()
+     return (PlayerJob.name == 'oilwell' and PlayerJob.onduty)
+end
+
 -- class
 OilRigs = {
+     dynamicSpawner_state = false,
      data_table = {}, -- this table holds oilwells data and defined by server
      core_entities = {} -- this table holds objects that has some functions to them and filled by dynamic spawner
 }
@@ -22,7 +31,7 @@ function OilRigs:add(s_res, id)
           blip_settings.type = 'oil_well'
           blip_settings.id = id
 
-          createCustom(self.data_table[id].position.coord, blip_settings)
+          self.data_table[id].blip_handle = createCustom(self.data_table[id].position.coord, blip_settings)
      end
 end
 
@@ -72,23 +81,40 @@ function OilRigs:readAll()
 end
 
 function OilRigs:DynamicSpawner()
+     self.dynamicSpawner_state = true
      local plyped = PlayerPedId()
      local object_spawn_distance = 125.0
-     local qbtarget_attachment_distance = 10.0
+
      CreateThread(function()
           -- create core blips
+          Wait(50)
           for index, value in pairs(Oilwell_config.locations) do
                value.blip.type = index
-               createCustom(value.position, value.blip)
+               if not value.blip.handle and PlayerJob.name == 'oilwell' then
+                    value.blip.handle = createCustom(value.position, value.blip)
+               end
+               if not value.qbtarget then
+                    addQbTargetToCoreEntities(value.position, index)
+                    value.qbtarget = true
+               end
           end
 
-          while true do
+          for _, oilwell in pairs(self.data_table) do
+               if not oilwell.qbtarget then
+                    local c = oilwell.position.coord
+                    local coord = vector3(c.x, c.y, c.z)
+                    createOwnerQbTarget(oilwell.oilrig_hash, coord)
+                    oilwell.qbtarget = true
+               end
+          end
+
+          while self.dynamicSpawner_state do
                local pedCoord = GetEntityCoords(plyped)
                -- oilwells/pumps
                for index, value in pairs(self.data_table) do
-                    local coord = value.position.coord
-                    local distance = GetDistanceBetweenCoords(coord.x, coord.y, coord.z, pedCoord.x, pedCoord.y,
-                         pedCoord.z, true)
+                    local c = value.position.coord
+                    c = vector3(c.x, c.y, c.z)
+                    local distance = #(c - pedCoord)
                     if distance < object_spawn_distance and self.data_table[index].entity == nil then
                          self.data_table[index].entity = spawnObjects(rigmodel, self.data_table[index].position)
                          self:syncSpeed(self.data_table[index].entity, self.data_table[index].metadata.speed)
@@ -97,65 +123,53 @@ function OilRigs:DynamicSpawner()
                          self.data_table[index].entity = nil
                     end
 
-                    -- attach qbtarget only for players that has this job
-
-                    if distance < qbtarget_attachment_distance and self.data_table[index].entity ~= nil and
-                        PlayerJob.name == 'oilwell' and OnDuty then
-                         -- add qbtarget
-                         if DoesEntityExist(self.data_table[index].entity) == 1 and value.Qbtarget == nil and
-                             value.entity ~= 0 then
-                              value.Qbtarget = "oil-rig-" .. value.entity
-                              createOwnerQbTarget(value.entity)
-                         end
-                    elseif distance > qbtarget_attachment_distance and self.data_table[index].entity ~= nil and
-                        PlayerJob.name == 'oilwell' and OnDuty then
-                         -- remove qbtarget if player is far away
-                         if PlayerJob.name == 'oilwell' and DoesEntityExist(self.data_table[index].entity) == 1 and
-                             value.Qbtarget ~= nil and
-                             value.entity ~= 0 then
-                              exports['qb-target']:RemoveZone(value.Qbtarget)
-                              value.Qbtarget = nil
-                         end
-                    end
                end
 
                for index, value in pairs(Oilwell_config.locations) do
-                    local distance = GetDistanceBetweenCoords(value.position.x, value.position.y, value.position.z,
-                         pedCoord.x, pedCoord.y, pedCoord.z, true)
+                    value.position = vector3(value.position.x, value.position.y, value.position.z)
+                    local distance = #(value.position - pedCoord)
                     if self.core_entities[index] == nil then
                          self.core_entities[index] = {}
                     end
 
                     if distance < object_spawn_distance and self.core_entities[index].entity == nil then
-                         local position = {
-                              coord = {
-                                   x = value.position.x,
-                                   y = value.position.y,
-                                   z = value.position.z,
-                              },
-                              rotation = {
-                                   x = value.rotation.x,
-                                   y = value.rotation.y,
-                                   z = value.rotation.z,
-                              }
-                         }
-                         local entity = spawnObjects(value.model, position)
+                         local entity = spawnObjects(value.model, {
+                              coord = { x = value.position.x, y = value.position.y, z = value.position.z, },
+                              rotation = { x = value.rotation.x, y = value.rotation.y, z = value.rotation.z, }
+                         })
                          self.core_entities[index].entity = entity
-                         value.Qbtarget = addQbTargetToCoreEntities(entity, index, PlayerJob)
                     elseif distance > object_spawn_distance and self.core_entities[index].entity ~= nil then
-                         exports['qb-target']:RemoveZone(index .. self.core_entities[index].entity)
                          DeleteEntity(self.core_entities[index].entity)
-                         value.Qbtarget = nil
                          self.core_entities[index].entity = nil
                     end
                end
-               Wait(1000)
+               Wait(1250)
           end
      end)
 end
 
+function OilRigs:Flush_Entities()
+     for _, oilwell in pairs(self.data_table) do
+          if oilwell.entity then
+               DeleteObject(oilwell.entity)
+          end
+          RemoveBlip(oilwell.blip_handle)
+     end
+     self.dynamicSpawner_state = false
+     Wait(5)
+     self.data_table = {}
+end
+
 --
 RegisterNetEvent('keep-oilrig:client:changeRigSpeed', function(qbtarget)
+     if not CheckJob() then
+          QBCore.Functions.Notify('You not a hired by oil company', "error")
+          return false
+     end
+     if not CheckOnduty() then
+          QBCore.Functions.Notify('You must be on duty!', "error")
+          return false
+     end
      OilRigs:startUpdate(function()
           local rig = OilRigs:getByEntityHandle(qbtarget.entity)
           local inputData = exports['qb-input']:ShowInput({
@@ -185,39 +199,26 @@ RegisterNetEvent('keep-oilrig:client:changeRigSpeed', function(qbtarget)
 end)
 
 local function loadData()
-     OilRigs.data_table = {}
+     OilRigs:Flush_Entities()
      QBCore.Functions.GetPlayerData(function(PlayerData)
           PlayerJob = PlayerData.job
           OnDuty = PlayerData.job.onduty
           QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
+
                for key, value in pairs(result) do
                     OilRigs:add(value, key)
                end
+
                OilRigs:DynamicSpawner()
           end)
      end)
 end
 
 RegisterNetEvent('keep-oilrig:client:syncSpeed', function(id, speed)
-     -- slowly increase and decrease speed of oilwell/pump
-     -- local actionSpeed = Oilwell_config.actionSpeed
      local rig = OilRigs:getById(id)
-     -- local currentspeed = rig.metadata.speed
-     OilRigs:syncSpeed(rig.entity, speed)
-
-     -- if currentspeed > speed then
-     --      while currentspeed >= speed and currentspeed > 0 do
-     --           currentspeed = currentspeed - actionSpeed
-     --           OilRigs:syncSpeed(rig.entity, currentspeed)
-     --           Wait(1000)
-     --      end
-     -- elseif currentspeed < speed then
-     --      while currentspeed <= speed and currentspeed >= 0 do
-     --           currentspeed = currentspeed + actionSpeed
-     --           OilRigs:syncSpeed(rig.entity, currentspeed)
-     --           Wait(1000)
-     --      end
-     -- end
+     if rig then
+          OilRigs:syncSpeed(rig.entity, speed)
+     end
 end)
 
 function spawnObjects(model, position)
@@ -252,6 +253,41 @@ AddEventHandler('keep-oilrig:client:spawn', function()
                               icon = "fa-regular fa-file-lines",
                               label = "Assign to player",
                               canInteract = function(entity)
+                                   if not CheckJob() then return false end
+                                   if not (PlayerJob.grade.level == 4) then
+                                        TriggerEvent('QBCore:Notify', 'You must be on duty!', "error")
+                                        Wait(2000)
+                                        return false
+                                   end
+                                   if not CheckOnduty() then
+                                        TriggerEvent('QBCore:Notify', 'You must be on duty!', "error")
+                                        Wait(2000)
+                                        return false
+                                   end
+                                   return true
+                              end,
+                         },
+                         {
+                              type = "client",
+                              event = "keep-oilwell:menu:OPENMENU",
+                              icon = "fa-regular fa-file-lines",
+                              label = "Adjust position",
+                              canInteract = function(entity)
+                                   if not CheckJob() then
+                                        TriggerEvent('QBCore:Notify', 'Only CEO have access to this', "error")
+                                        Wait(2000)
+                                        return false
+                                   end
+                                   if not (PlayerJob.grade.level == 4) then
+                                        TriggerEvent('QBCore:Notify', 'Only CEO have access to this', "error")
+                                        Wait(2000)
+                                        return false
+                                   end
+                                   if not CheckOnduty() then
+                                        TriggerEvent('QBCore:Notify', 'You must be on duty!', "error")
+                                        Wait(2000)
+                                        return false
+                                   end
                                    return true
                               end,
                          },
@@ -299,6 +335,7 @@ RegisterNetEvent('keep-oilrig:client:enterInformation', function(qbtarget)
 end)
 
 RegisterNetEvent('keep-oilwell:client:force_reload', function()
+     Wait(25)
      loadData()
 end)
 
@@ -307,20 +344,40 @@ AddEventHandler('onResourceStart', function(resourceName)
           return
      end
      Wait(500)
-     loadData()
 
      QBCore.Functions.GetPlayerData(function(PlayerData)
           PlayerJob = PlayerData.job
-          if PlayerJob.name == 'police' then
-               OnDuty = PlayerData.job.onduty
-          end
+          OnDuty = PlayerData.job.onduty
+          loadData()
      end)
+     StartBarellAnimation()
+end)
+
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+     Wait(3000)
+     QBCore.Functions.GetPlayerData(function(PlayerData)
+          PlayerJob = PlayerData.job
+          OnDuty = PlayerData.job.onduty
+          loadData()
+     end)
+     StartBarellAnimation()
+end)
+
+RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
+     PlayerJob = JobInfo
+     OnDuty = PlayerJob.onduty
+     loadData()
+end)
+
+RegisterNetEvent('QBCore:Client:SetDuty', function(duty)
+     OnDuty = duty
+     loadData()
 end)
 
 RegisterNetEvent('keep-oilrig:client:local_mail_sender', function(data)
      local Lang = Oilwell_config.Locale
-     local price = data.transport_price * data.amount
-     Lang.mail.message = string.format(Lang.mail.message, data.gender, data.charinfo.lastname, price, data.amount)
+     Lang.mail.message = string.format(Lang.mail.message, data.gender, data.charinfo.lastname, data.money, data.amount,
+          data.refund)
      TriggerServerEvent('qb-phone:server:sendNewMail', {
           sender = Lang.mail.sender,
           subject = Lang.mail.subject,
@@ -329,30 +386,12 @@ RegisterNetEvent('keep-oilrig:client:local_mail_sender', function(data)
      })
 end)
 
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-     Wait(3000)
-     QBCore.Functions.GetPlayerData(function(PlayerData)
-          PlayerJob = PlayerData.job
-          if PlayerJob.name == 'oilwell' then
-               OnDuty = PlayerData.job.onduty
-               loadData()
-          end
-     end)
-end)
-
-RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
-     PlayerJob = JobInfo
-     if PlayerJob.name == 'oilwell' then
-          OnDuty = PlayerJob.onduty
-          if PlayerJob.onduty then
-               loadData()
-          end
-     end
-end)
-
-RegisterNetEvent('QBCore:Client:SetDuty', function(duty)
-     if PlayerJob.name == 'oilwell' and duty ~= OnDuty then
-          OnDuty = duty
-          loadData()
+RegisterNetEvent('keep-oilwell:server_lib:AddExplosion', function(bullding_type)
+     local c = Oilwell_config.locations[bullding_type].position
+     local t = 0
+     for i = 1, 5, 1 do
+          AddExplosion(c.x, c.y, c.z + 0.5, 9, 10.0, true, false, true)
+          t = t + 1000
+          Wait(t)
      end
 end)

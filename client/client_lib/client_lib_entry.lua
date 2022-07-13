@@ -1,5 +1,10 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+local function isOwner(entity)
+     local oilrig = OilRigs:getByEntityHandle(entity)
+     return (oilrig ~= nil and oilrig.isOwner == true)
+end
+
 local function Draw2DText(content, font, colour, scale, x, y)
      SetTextFont(font)
      SetTextScale(scale, scale)
@@ -48,7 +53,11 @@ end
 
 function ChooseSpawnLocation()
      local plyped = PlayerPedId()
+     local pedCoord = GetEntityCoords(plyped)
      local activeLaser = true
+     local oilrig = CreateObject(GetHashKey('p_oil_pjack_03_s'), pedCoord.x, pedCoord.y, pedCoord.z, 1, 1, 0)
+     SetEntityAlpha(oilrig, 150, true)
+
      while activeLaser do
           Wait(0)
           local color = {
@@ -59,17 +68,20 @@ function ChooseSpawnLocation()
           }
           local position = GetEntityCoords(plyped)
           local coords, entity = RayCastGamePlayCamera(1000.0)
-          Draw2DText('Press ~g~E~w~ To go there', 4, { 255, 255, 255 }, 0.4, 0.43,
+          Draw2DText('Press ~g~E~w~ To Place oilwell', 4, { 255, 255, 255 }, 0.4, 0.43,
                0.888 + 0.025)
           if IsControlJustReleased(0, 38) then
                activeLaser = false
+               DeleteEntity(oilrig)
                return coords
           end
           DrawLine(position.x, position.y, position.z, coords.x, coords.y,
                coords.z, color.r, color.g, color.b, color.a)
-          DrawMarker(28, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 180.0,
-               0.0, 0.1, 0.1, 0.1, color.r, color.g, color.b, color.a,
-               false, true, 2, nil, nil, false)
+          -- DrawMarker(28, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 180.0,
+          --      0.0, 0.1, 0.1, 0.1, color.r, color.g, color.b, color.a,
+          --      false, true, 2, nil, nil, false)
+          SetEntityCollision(oilrig, false, false)
+          SetEntityCoords(oilrig, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0)
      end
 end
 
@@ -109,11 +121,10 @@ function replaceString(o)
      return s
 end
 
-function createOwnerQbTarget(entity)
-     local coord = GetEntityCoords(entity)
-     exports['qb-target']:AddBoxZone("oil-rig-" .. entity, coord, 3, 5, {
-          name = "oil-rig-" .. entity,
-          heading = GetEntityHeading(entity),
+function createOwnerQbTarget(hash, coord)
+     exports['qb-target']:RemoveZone("oil-rig-" .. hash)
+     exports['qb-target']:AddBoxZone("oil-rig-" .. hash, coord, 3, 5, {
+          name = "oil-rig-" .. hash,
           debugPoly = false,
           minZ = coord.z,
           maxZ = coord.z + 3,
@@ -134,12 +145,9 @@ function createOwnerQbTarget(entity)
                     icon = "fa-solid fa-gauge-high",
                     label = "Modifiy Pump Settings",
                     canInteract = function(entity)
-                         local oilrig = OilRigs:getByEntityHandle(entity)
-                         if oilrig ~= nil and oilrig.isOwner == true then
-                              return true
-                         else
-                              return false
-                         end
+                         if not CheckJob() then return false end
+                         if not CheckOnduty() then return false end
+                         return isOwner(entity)
                     end,
                },
                {
@@ -148,131 +156,193 @@ function createOwnerQbTarget(entity)
                     icon = "fa-solid fa-gears",
                     label = "Manange Parts",
                     canInteract = function(entity)
-                         local oilrig = OilRigs:getByEntityHandle(entity)
-                         if oilrig ~= nil and oilrig.isOwner == true then
-                              return true
-                         else
-                              return false
-                         end
+                         if not CheckJob() then return false end
+                         if not CheckOnduty() then return false end
+                         return isOwner(entity)
                     end,
-                    -- action = function(entity)
-                    --      TriggerEvent('keep-oilrig:client:show_oilwell_stash', entity)
-                    -- end
                },
           },
           distance = 2.5
      })
 end
 
-function addQbTargetToCoreEntities(entity, Type, PlayerJob)
+function addQbTargetToCoreEntities(coord, Type)
      local key = Type
-     local qbtarget_name = key .. entity
-
-     if PlayerJob.name == 'oilwell' then
-          if key == 'storage' then
-               exports['qb-target']:AddEntityZone("storage" .. entity, entity, {
-                    name = "storage" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = false,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:storage_menu:ShowStorage",
-                              icon = "fa-solid fa-arrows-spin",
-                              label = "View Storage",
-                              canInteract = function(entity)
-                                   print(OnDuty)
-                                   return true
-                              end,
-                         },
+     local debugPoly = false
+     local tmp_coord = vector3(coord.x, coord.y, coord.z) -- to fix qb-target not showing up
+     if key == 'storage' then
+          exports['qb-target']:AddBoxZone(key, tmp_coord, 3, 3, {
+               name = key,
+               heading = coord.w,
+               debugPoly = debugPoly,
+               minZ = tmp_coord.z,
+               maxZ = tmp_coord.z + 3
+          }, {
+               options = {
+                    {
+                         type = "client",
+                         event = "keep-oilrig:storage_menu:ShowStorage",
+                         icon = "fa-solid fa-arrows-spin",
+                         label = "View Storage",
+                         canInteract = function(entity)
+                              if not CheckJob() then return false end
+                              if not CheckOnduty() then
+                                   QBCore.Functions.Notify('You must be on duty!', "error")
+                                   Wait(2000)
+                                   return false
+                              end
+                              return true
+                         end,
                     },
-                    distance = 2.5
-               })
-          elseif key == 'distillation' then
-               exports['qb-target']:AddEntityZone("distillation" .. entity, entity, {
-                    name = "distillation" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = false,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:CDU_menu:ShowCDU",
-                              icon = "fa-solid fa-gear",
-                              label = "Open CDU panel",
-                              canInteract = function(entity)
-                                   return true
-                              end,
-                         },
+               },
+               distance = 2.5
+          })
+     elseif key == 'distillation' then
+          exports['qb-target']:AddBoxZone(key, tmp_coord, 2, 4, {
+               name = key,
+               heading = coord.w,
+               debugPoly = debugPoly,
+               minZ = tmp_coord.z,
+               maxZ = tmp_coord.z + 3
+          }, {
+               options = {
+                    {
+                         type = "client",
+                         event = "keep-oilrig:CDU_menu:ShowCDU",
+                         icon = "fa-solid fa-gear",
+                         label = "Open CDU panel",
+                         canInteract = function(entity)
+                              if not CheckJob() then return false end
+                              if not CheckOnduty() then
+                                   QBCore.Functions.Notify('You must be on duty!', "error")
+                                   Wait(2000)
+                                   return false
+                              end
+                              return true
+                         end,
                     },
-                    distance = 2.5
-               })
-          elseif key == 'blender' then
-               exports['qb-target']:AddEntityZone("blender" .. entity, entity, {
-                    name = "blender" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = false,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:blender_menu:ShowBlender",
-                              icon = "fa-solid fa-gear",
-                              label = "Open blender panel",
-                              canInteract = function(entity)
-                                   return true
-                              end,
-                         },
+               },
+               distance = 1.5
+          })
+     elseif key == 'blender' then
+          exports['qb-target']:AddBoxZone(key, tmp_coord, 4, 6, {
+               name = key,
+               heading = coord.w,
+               debugPoly = debugPoly,
+               minZ = tmp_coord.z,
+               maxZ = tmp_coord.z + 3
+          }, {
+               options = {
+                    {
+                         type = "client",
+                         event = "keep-oilrig:blender_menu:ShowBlender",
+                         icon = "fa-solid fa-gear",
+                         label = "Open blender panel",
+                         canInteract = function(entity)
+                              if not CheckJob() then return false end
+                              if not CheckOnduty() then
+                                   QBCore.Functions.Notify('You must be on duty!', "error")
+                                   Wait(2000)
+                                   return false
+                              end
+                              return true
+                         end,
                     },
-                    distance = 2.5
-               })
-          elseif key == 'barrel_withdraw' then
-               exports['qb-target']:AddEntityZone("barrel_withdraw" .. entity, entity, {
-                    name = "barrel_withdraw" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = false,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilrig:client_lib:withdraw_from_queue",
-                              icon = "fa-solid fa-boxes-packing",
-                              label = "Send to invnetory",
-                              canInteract = function(entity)
-                                   return true
-                              end,
-                         },
+               },
+               distance = 2.5
+          })
+     elseif key == 'barrel_withdraw' then
+          exports['qb-target']:AddBoxZone(key, tmp_coord, 1.5, 1.5, {
+               name = key,
+               heading = coord.w,
+               debugPoly = debugPoly,
+               minZ = tmp_coord.z,
+               maxZ = tmp_coord.z + 2
+          }, {
+               options = {
+                    {
+                         type = "client",
+                         event = "keep-oilrig:client_lib:withdraw_from_queue",
+                         icon = "fa-solid fa-boxes-packing",
+                         label = "Transfer withdraw to stash",
+                         truck = false,
+                         canInteract = function(entity)
+                              if not CheckJob() then return false end
+                              if not CheckOnduty() then
+                                   QBCore.Functions.Notify('You must be on duty!', "error")
+                                   Wait(2000)
+                                   return false
+                              end
+                              return true
+                         end,
                     },
-                    distance = 2.5
-               })
-          elseif key == 'crude_oil_transport' then
-               exports['qb-target']:AddEntityZone("crude_oil_transport" .. entity, entity, {
-                    name = "crude_oil_transport" .. entity,
-                    heading = GetEntityHeading(entity),
-                    debugPoly = false,
-               }, {
-                    options = {
-                         {
-                              type = "client",
-                              event = "keep-oilwell:menu:show_transport_menu",
-                              icon = "fa-solid fa-boxes-packing",
-                              label = "Fill transport well",
-                              canInteract = function(entity)
-                                   return true
-                              end,
-                         },
+                    {
+                         type = "client",
+                         event = "keep-oilwell:client:openWithdrawStash",
+                         icon = "fa-solid fa-boxes-packing",
+                         label = "Open Withdraw Stash",
+                         canInteract = function(entity)
+                              if not CheckJob() then return false end
+                              if not CheckOnduty() then
+                                   QBCore.Functions.Notify('You must be on duty!', "error")
+                                   Wait(2000)
+                                   return false
+                              end
+                              return true
+                         end,
                     },
-                    distance = 2.5
-               })
-          end
-     end
-
-     if key == 'toggle_job' then
-          exports['qb-target']:AddEntityZone("toggle_job" .. entity, entity, {
-               name = "toggle_job" .. entity,
-               heading = GetEntityHeading(entity),
-               debugPoly = false,
+                    {
+                         type = "client",
+                         event = "keep-oilwell:client:open_purge_menu",
+                         icon = "fa-solid fa-trash-can",
+                         label = "Purge Withdraw Stash",
+                         canInteract = function(entity)
+                              if not CheckJob() then return false end
+                              if not CheckOnduty() then
+                                   QBCore.Functions.Notify('You must be on duty!', "error")
+                                   Wait(2000)
+                                   return false
+                              end
+                              return true
+                         end,
+                    },
+               },
+               distance = 2.5
+          })
+     elseif key == 'crude_oil_transport' then
+          exports['qb-target']:AddBoxZone(key, tmp_coord, 2, 2, {
+               name = key,
+               heading = coord.w,
+               debugPoly = debugPoly,
+               minZ = tmp_coord.z,
+               maxZ = tmp_coord.z + 2
+          }, {
+               options = {
+                    {
+                         type = "client",
+                         event = "keep-oilwell:menu:show_transport_menu",
+                         icon = "fa-solid fa-boxes-packing",
+                         label = "Fill transport well",
+                         canInteract = function(entity)
+                              if not CheckJob() then return false end
+                              if not CheckOnduty() then
+                                   QBCore.Functions.Notify('You must be on duty!', "error")
+                                   Wait(2000)
+                                   return false
+                              end
+                              return true
+                         end,
+                    },
+               },
+               distance = 2.5
+          })
+     elseif key == 'toggle_job' then
+          exports['qb-target']:AddBoxZone(key, tmp_coord, 1, 1, {
+               name = key,
+               heading = coord.w,
+               debugPoly = debugPoly,
+               minZ = tmp_coord.z,
+               maxZ = tmp_coord.z + 2
           }, {
                options = {
                     {
@@ -281,6 +351,7 @@ function addQbTargetToCoreEntities(entity, Type, PlayerJob)
                          icon = "fa-solid fa-boxes-packing",
                          label = "Toggle Duty",
                          canInteract = function(entity)
+                              if not CheckJob() then return false end
                               return true
                          end,
                     },
@@ -288,14 +359,24 @@ function addQbTargetToCoreEntities(entity, Type, PlayerJob)
                distance = 2.5
           })
      end
-
-     return qbtarget_name
 end
 
-RegisterNetEvent('keep-oilrig:client_lib:withdraw_from_queue', function()
+RegisterNetEvent('keep-oilrig:client_lib:withdraw_from_queue', function(data)
      QBCore.Functions.TriggerCallback('keep-oilrig:server:withdraw_from_queue', function(result)
+          -- res >> table of items
+          if result == false then
+               return
+          end
+          if not result.truck then
+               return
+          end
+          local SpawnLocation = Oilwell_config.Delivery.SpawnLocation
+          local TriggerLocation = Oilwell_config.Delivery.TriggerLocation
+          local DinstanceToTrigger = Oilwell_config.Delivery.DinstanceToTrigger
+          local model = Oilwell_config.Delivery.vehicleModel
 
-     end)
+          MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, result)
+     end, data.truck)
 end)
 
 ---force remove objects in area
@@ -311,14 +392,14 @@ RegisterNetEvent('keep-oilrig:client:clearArea', function(coord)
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function(PlayerJob)
-     if PlayerJob.name == 'oilwell' then
-          OnDuty = PlayerJob.onduty
+     if CheckJob() then
+          OnDuty = CheckOnduty()
      end
 end)
 
 RegisterNetEvent('keep-oilrig:client:goOnDuty', function(PlayerJob)
      TriggerServerEvent("QBCore:ToggleDuty")
-     if PlayerJob.name == 'oilwell' and PlayerJob.onduty == false then
+     if CheckJob() and CheckOnduty() == false then
           OnDuty = true
      else
           OnDuty = false

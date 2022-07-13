@@ -2,10 +2,16 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 local function showblender(data)
      local state = ''
-     if data.metadata.state == false then
+     local start_btn = 'Start'
+     local start_icon = 'fa-solid fa-square-caret-right'
+     if type(data) == "table" and data.metadata.state == false then
           state = 'Inactive'
+          start_btn = 'Start'
+          start_icon = 'fa-solid fa-square-caret-right'
      else
           state = 'Active'
+          start_btn = 'Stop'
+          start_icon = "fa-solid fa-circle-stop"
      end
 
      local header = "Blender unit (" .. state .. ')'
@@ -13,6 +19,10 @@ local function showblender(data)
      local heavy_naphtha = data.metadata.heavy_naphtha
      local light_naphtha = data.metadata.light_naphtha
      local other_gases = data.metadata.other_gases
+     -- new elements
+     local diesel = data.metadata.diesel
+     local kerosene = data.metadata.kerosene
+     local fuel_oil = data.metadata.fuel_oil
 
      local openMenu = {
           {
@@ -37,30 +47,74 @@ local function showblender(data)
                txt = other_gases .. " Gallons",
                disabled = true
           },
-          {
-               header = 'Change Recipe',
-               icon = 'fa-solid fa-scroll',
-               params = {
-                    event = "keep-oilrig:blender_menu:recipe_blender"
-               }
-          },
-          {
-               header = 'Start Blending',
-               icon = 'fa-solid fa-arrows-spin',
-               params = {
-                    event = "keep-oilrig:blender_menu:toggle_blender"
-               }
-          },
-          {
-               header = 'leave',
-               icon = 'fa-solid fa-angle-left',
-               params = {
-                    event = "qb-menu:closeMenu"
-               }
+     }
+     -- new elements
+     if diesel then
+          openMenu[#openMenu + 1] = {
+               header = 'Diesel',
+               icon = 'fa-solid fa-circle',
+               txt = diesel .. " Gallons",
+               disabled = true
+          }
+     end
+
+     if kerosene then
+          openMenu[#openMenu + 1] = {
+               header = 'Kerosene',
+               icon = 'fa-solid fa-circle',
+               txt = kerosene .. " Gallons",
+               disabled = true
+          }
+     end
+
+     if fuel_oil then
+          openMenu[#openMenu + 1] = {
+               header = 'Fuel oil',
+               icon = 'fa-solid fa-circle',
+               txt = fuel_oil .. " Gallons (no use in blending process)",
+               disabled = true
+          }
+     end
+
+     openMenu[#openMenu + 1] = {
+          header = 'Change Recipe',
+          icon = 'fa-solid fa-scroll',
+          params = {
+               event = "keep-oilrig:blender_menu:recipe_blender"
+          }
+     }
+
+     openMenu[#openMenu + 1] = {
+          header = start_btn .. ' Blending',
+          icon = start_icon,
+          params = {
+               event = "keep-oilrig:blender_menu:toggle_blender"
+          }
+     }
+
+     openMenu[#openMenu + 1] = {
+          header = 'Pump Fuel-Oil to Storage',
+          icon = 'fa-solid fa-arrows-spin',
+          params = {
+               event = "keep-oilrig:blender_menu:pump_fueloil"
+          }
+     }
+
+     openMenu[#openMenu + 1] = {
+          header = 'leave',
+          icon = 'fa-solid fa-circle-xmark',
+          params = {
+               event = "qb-menu:closeMenu"
           }
      }
      exports['qb-menu']:openMenu(openMenu)
 end
+
+AddEventHandler('keep-oilrig:blender_menu:pump_fueloil', function()
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:pump_fueloil', function(result)
+          showblender(result)
+     end)
+end)
 
 AddEventHandler('keep-oilrig:blender_menu:ShowBlender', function()
      QBCore.Functions.TriggerCallback('keep-oilrig:server:ShowBlender', function(result)
@@ -73,6 +127,10 @@ AddEventHandler('keep-oilrig:blender_menu:toggle_blender', function()
           showblender(result)
      end)
 end)
+
+local function inRange(x, min, max)
+     return (x >= min and x <= max)
+end
 
 AddEventHandler('keep-oilrig:blender_menu:recipe_blender', function()
      local inputData = exports['qb-input']:ShowInput({
@@ -97,12 +155,42 @@ AddEventHandler('keep-oilrig:blender_menu:recipe_blender', function()
                     name = 'other_gases',
                     text = "Other Gases"
                },
+               -- new elements
+
+               {
+                    type = 'number',
+                    isRequired = true,
+                    name = 'diesel',
+                    text = "Diesel"
+               },
+
+               {
+                    type = 'number',
+                    isRequired = true,
+                    name = 'kerosene',
+                    text = "Kerosene"
+               },
           }
      })
      if inputData then
-          if not inputData.heavy_naphtha and not inputData.light_naphtha and not inputData.other_gases then
+          if not
+              (
+              inputData.heavy_naphtha
+                  and inputData.light_naphtha
+                  and inputData.other_gases
+                  and inputData.diesel
+                  and inputData.kerosene
+              ) then
                return
           end
+
+          for _, value in pairs(inputData) do
+               if not inRange(tonumber(value), 0, 100) then
+                    QBCore.Functions.Notify('numbers must be between 0-100', "primary")
+                    return
+               end
+          end
+
           QBCore.Functions.TriggerCallback('keep-oilrig:server:recipe_blender', function(result)
                showblender(result)
           end, inputData)

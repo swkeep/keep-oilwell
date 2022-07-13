@@ -1,3 +1,5 @@
+local QBCore = exports['qb-core']:GetCoreObject()
+
 GlobalScirptData = {
      oldTable = { 'deepcopy of oil_well' },
      oil_well = {
@@ -241,6 +243,14 @@ function createMetadataTrackers(oil_wells, devices)
      end)
 end
 
+local function cal_avg_octane(res)
+     local avg = 0
+     for key, Type in pairs(res) do
+          avg = avg + Type.octane
+     end
+     return math.ceil((avg / 5) + 0.5)
+end
+
 function DataManipulations_metadata_blender(blender)
      if blender.metadata.state == false then
           return
@@ -248,14 +258,26 @@ function DataManipulations_metadata_blender(blender)
 
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', blender.citizenid)
 
+     if storage == false then
+          -- failsafe
+          local player = QBCore.Functions.GetPlayerByCitizenId(blender.citizenid)
+          TriggerClientEvent('QBCore:Notify', player.PlayerData.source,
+               "Fetal error could not coonect to your storage!", 'error')
+          TriggerClientEvent('QBCore:Notify', player.PlayerData.source,
+               "Fail-safe triggerd shuting down!", 'primary')
+          blender.metadata.state = false
+          return
+     end
+
      if blender.metadata.heavy_naphtha <= 0.0 then
           blender.metadata.heavy_naphtha = 0.0
           blender.metadata.state = false
           return
      end
-
+     -- blender.metadata.diesel
+     -- blender.metadata.kerosene
      if blender.metadata.light_naphtha <= 0.0 then
-          blender.metadata.heavy_naphtha = 0.0
+          blender.metadata.light_naphtha = 0.0
           blender.metadata.state = false
           return
      end
@@ -265,30 +287,44 @@ function DataManipulations_metadata_blender(blender)
           blender.metadata.state = false
           return
      end
-     local res = 0
 
-     blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha - 0.5
-     blender.metadata.light_naphtha = blender.metadata.light_naphtha - 0.4
-     blender.metadata.other_gases = blender.metadata.other_gases - 0.9
-
-     if blender.metadata.recipe.heavy_naphtha ~= 28.0 then
-          res = res + 0.2
-     else
-          res = res + 0.1
+     if blender.metadata.diesel <= 0.0 then
+          blender.metadata.diesel = 0.0
+          blender.metadata.state = false
+          return
      end
 
-     if blender.metadata.recipe.light_naphtha ~= 36.0 then
-          res = res + 0.5
-     else
-          res = res + 0.4
+     if blender.metadata.kerosene <= 0.0 then
+          blender.metadata.kerosene = 0.0
+          blender.metadata.state = false
+          return
      end
 
-     if blender.metadata.recipe.other_gases ~= 36.0 then
-          res = res + 0.5
-     else
-          res = res + 0.4
+     if not blender.metadata.recipe.diesel then
+          blender.metadata.recipe.diesel = 0
      end
-     storage.metadata.gasoline = storage.metadata.gasoline + res
+     if not blender.metadata.recipe.kerosene then
+          blender.metadata.recipe.kerosene = 0
+     end
+
+     local res = {
+          light_naphtha = BalanceRecipe:Blender(tonumber(blender.metadata.recipe.light_naphtha), 'light_naphtha'),
+          heavy_naphtha = BalanceRecipe:Blender(tonumber(blender.metadata.recipe.heavy_naphtha), 'heavy_naphtha'),
+          other_gases = BalanceRecipe:Blender(tonumber(blender.metadata.recipe.other_gases), 'other_gases'),
+          --new elements
+          diesel = BalanceRecipe:Blender(tonumber(blender.metadata.recipe.diesel), 'diesel'),
+          kerosene = BalanceRecipe:Blender(tonumber(blender.metadata.recipe.kerosene), 'kerosene'),
+     }
+     blender.metadata.light_naphtha = blender.metadata.light_naphtha - res.light_naphtha.usage
+     blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha - res.heavy_naphtha.usage
+     blender.metadata.other_gases = blender.metadata.other_gases - res.other_gases.usage
+     -- new elements
+     blender.metadata.diesel = blender.metadata.diesel - res.diesel.usage
+     blender.metadata.kerosene = blender.metadata.kerosene - res.kerosene.usage
+
+     res.avg_octane = cal_avg_octane(res)
+     storage.metadata.avg_gas_octane = math.ceil((storage.metadata.avg_gas_octane + res.avg_octane) / 2)
+     storage.metadata.gasoline = Round(storage.metadata.gasoline + 0.75, 2)
 end
 
 function DataManipulations_metadata_CDU(CDU)
@@ -308,96 +344,103 @@ function DataManipulations_metadata_CDU(CDU)
           CDU.metadata.temp = CDU.metadata.req_temp
      end
 
+     -- a little bit of fun xd
+     if CDU.metadata.temp >= 1000 then
+          local player = QBCore.Functions.GetPlayerByCitizenId(CDU.citizenid)
+          CDU.metadata.temp = 0
+          CDU.metadata.state = false
+          TriggerClientEvent('keep-oilwell:server_lib:AddExplosion', player.PlayerData.source, 'distillation')
+          return
+     end
      -- oil_storage > 1.0 min buffer
      -- CDU functions on current temp if we have something in oil_storage
      if CDU.metadata.oil_storage > 1.0 then
           -- get storage to export CDU products
           local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', CDU.citizenid)
+          if blender == false then
+               -- CUD's failsafe
+               local player = QBCore.Functions.GetPlayerByCitizenId(CDU.citizenid)
+               local source = player.PlayerData.source
+               TriggerClientEvent('QBCore:Notify', source, "Fetal error could not coonect to your blender!", 'error')
+               TriggerClientEvent('QBCore:Notify', source, "Fail-safe triggerd shuting down!", 'primary')
+               CDU.metadata.state = false
+               return
+          end
 
-          if CDU.metadata.temp < 20.0 and CDU.metadata.temp > 0.0 then
-               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
-          elseif CDU.metadata.temp < 150.0 and CDU.metadata.temp > 20.0 then
-               -- Butane & Propane
-               -- other gases
-               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.5
-               blender.metadata.other_gases = blender.metadata.other_gases + 0.75
-          elseif CDU.metadata.temp < 200.0 and CDU.metadata.temp > 150.0 then
-               -- Petrol
-               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-               blender.metadata.light_naphtha = blender.metadata.light_naphtha + 1.5
-          elseif CDU.metadata.temp < 300.0 and CDU.metadata.temp > 200.0 then
-               -- Diesel
-               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-               blender.metadata.light_naphtha = blender.metadata.light_naphtha + 1.0
-          elseif CDU.metadata.temp < 370.0 and CDU.metadata.temp > 300.0 then
-               -- Fuel Oil
-               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-               blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha + 1.0
-          elseif CDU.metadata.temp < 400.0 and CDU.metadata.temp > 370.0 then
-               -- Lubricating oil, Parrafin Wax, Asphalt
-               CDU.metadata.oil_storage = CDU.metadata.oil_storage - 0.75
-               blender.metadata.heavy_naphtha = blender.metadata.heavy_naphtha + 0.5
+          local multi, o_type = BalanceRecipe:CDU(CDU.metadata.temp)
+          if multi and o_type then
+               CDU.metadata.oil_storage = CDU.metadata.oil_storage - multi
+               if blender.metadata[o_type] == nil then
+                    blender.metadata[o_type] = 0
+               end
+               blender.metadata[o_type] = blender.metadata[o_type] + multi
           end
      end
 end
 
 function DataManipulations_metadata_oil_well(oil_well)
      local pumpOverHeat = 327
+     local sotrage_size = Oilwell_config.Settings.size.oilwell_storage
 
-     if oil_well.metadata.speed ~= 0 then
+     if oil_well.metadata.speed > 0 then
           oil_well.metadata.duration = oil_well.metadata.duration + 1
           oil_well.metadata.secduration = oil_well.metadata.duration
           if oil_well.metadata.temp ~= nil and pumpOverHeat >= oil_well.metadata.temp then
-               oil_well.metadata.temp = tempGrowth(oil_well.metadata.temp, oil_well.metadata.speed, 'increase',
-                    pumpOverHeat)
-               oil_well.metadata.temp = Round(oil_well.metadata.temp, 2)
+               local temp = oil_well.metadata.temp
+               local speed = oil_well.metadata.speed
+               oil_well.metadata.temp = Round(tempGrowth(temp, speed, 'increase', pumpOverHeat), 2)
           else
                oil_well.metadata.temp = pumpOverHeat
           end
-          if oil_well.metadata.temp > 50 and oil_well.metadata.temp < (pumpOverHeat - 25) and
-              oil_well.metadata.oil_storage <= 300 then
-               oil_well.metadata.oil_storage = oil_well.metadata.oil_storage + (0.1 * (oil_well.metadata.speed / 50))
-          end
 
+          if oil_well.metadata.speed <= 0 then return end
           -- parts functions
-          if oil_well.metadata.speed ~= 0 and oil_well.metadata.part_info.belt ~= 0 then
-               local res = oil_well.metadata.part_info.belt - (0.1 * (oil_well.metadata.speed / 50))
-               oil_well.metadata.part_info.belt = Round(res, 2)
+          if oil_well.metadata.part_info.belt > 0 then
+               local res = BalanceRecipe:SpeedRelated('OilwellBeltDegradation', oil_well.metadata.speed)
+               oil_well.metadata.part_info.belt = Round((oil_well.metadata.part_info.belt - res), 2)
           elseif oil_well.metadata.part_info.belt <= 0 then
                oil_well.metadata.part_info.belt = 0
                oil_well.metadata.speed = 0
                TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
           end
 
-          if oil_well.metadata.speed ~= 0 and oil_well.metadata.part_info.polish ~= 0 then
-               local res = oil_well.metadata.part_info.polish - (0.1 * (oil_well.metadata.speed / 40))
-               oil_well.metadata.part_info.polish = Round(res, 2)
+          if oil_well.metadata.part_info.polish > 0 then
+               local res = BalanceRecipe:SpeedRelated('OilwellPolishDegradation', oil_well.metadata.speed)
+               oil_well.metadata.part_info.polish = Round((oil_well.metadata.part_info.polish - res), 2)
           elseif oil_well.metadata.part_info.polish <= 0 then
                oil_well.metadata.part_info.polish = 0
                oil_well.metadata.speed            = 0
                TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
           end
 
-          if oil_well.metadata.speed ~= 0 and oil_well.metadata.part_info.clutch ~= 0 then
-               local res = oil_well.metadata.part_info.clutch - (0.1 * (oil_well.metadata.speed / 35))
-               oil_well.metadata.part_info.clutch = Round(res, 2)
+          if oil_well.metadata.part_info.clutch > 0 then
+               local res = BalanceRecipe:SpeedRelated('OilwellClutchDegradation', oil_well.metadata.speed)
+               oil_well.metadata.part_info.clutch = Round((oil_well.metadata.part_info.clutch - res), 2)
           elseif oil_well.metadata.part_info.clutch <= 0 then
                oil_well.metadata.part_info.clutch = 0
                oil_well.metadata.speed = 0
                TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
           end
 
+          -- skip player oil if player one part is 0
+          if oil_well.metadata.part_info.clutch == 0 or oil_well.metadata.part_info.polish == 0 or
+              oil_well.metadata.part_info.belt == 0 then
+               return
+          end
+          if oil_well.metadata.temp > 0 and oil_well.metadata.temp < pumpOverHeat and
+              oil_well.metadata.oil_storage <= sotrage_size then
+               local res = BalanceRecipe:SpeedRelated('OilwellProdoction', oil_well.metadata.speed)
+               oil_well.metadata.oil_storage = oil_well.metadata.oil_storage + res
+          end
      else
           -- reset duration
-          if oil_well.metadata.duration ~= 0 then
-               oil_well.metadata.duration = 0
-          end
+          oil_well.metadata.duration = 0
           -- start cooling procces
           if oil_well.metadata.secduration > 0 then
+               local temp = oil_well.metadata.temp
+               local speed = oil_well.metadata.speed
                oil_well.metadata.secduration = oil_well.metadata.secduration - 1
-               oil_well.metadata.temp = tempGrowth(oil_well.metadata.temp, oil_well.metadata.speed, 'decrease',
-                    pumpOverHeat)
-               oil_well.metadata.temp = Round(oil_well.metadata.temp, 2)
+               oil_well.metadata.temp = Round(tempGrowth(temp, speed, 'decrease', pumpOverHeat), 2)
           elseif oil_well.metadata.secduration == 0 then
                oil_well.metadata.temp = 0
           end
@@ -409,26 +452,68 @@ function DataManipulations_metadata_oil_well(oil_well)
 end
 
 -- Storage
-SendOilToStorage = function(oilrig, player)
+SendOilToStorage = function(oilrig, player, src, cb)
      local citizenid = player.PlayerData.citizenid
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
      if storage == false then
-          local state = InitStorage({
+          InitStorage({
                citizenid = citizenid,
                name = player.PlayerData.name .. "'s storage",
           })
-          if state == false then
-               return false
-          end
+          TriggerClientEvent('QBCore:Notify', src, "Could not connect to your stroage try again!", 'error')
+          cb(false)
+          return
      end
      -- add to storage
      storage.metadata.crudeOil = Round(storage.metadata.crudeOil + oilrig.metadata.oil_storage, 2)
+     TriggerClientEvent('QBCore:Notify', src, oilrig.metadata.oil_storage .. " Gallon of Curde Oil pumped to storage")
      -- remove from oilwell
      oilrig.metadata.oil_storage = 0.0
-     return true
+     cb(true)
 end
 
-InitStorage = function(o)
+SendOilFuelToStorage = function(player, src, cb)
+     local citizenid = player.PlayerData.citizenid
+     local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', citizenid)
+     local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+
+     if storage == false then
+          InitStorage({
+               citizenid = citizenid,
+               name = player.PlayerData.name .. "'s storage",
+          })
+          TriggerClientEvent('QBCore:Notify', src, "Could not connect to your stroage try again!", 'error')
+          cb(false)
+          return
+     end
+
+     if not blender then
+          TriggerClientEvent('QBCore:Notify', src, "Could not connect to your blender try again!", 'error')
+          cb(false)
+          return
+     end
+
+     if not storage.metadata.fuel_oil then
+          storage.metadata.fuel_oil = 0
+     end
+
+     if not blender.metadata.fuel_oil then
+          blender.metadata.fuel_oil = 0
+     end
+
+     if blender.metadata.fuel_oil == 0 then
+          TriggerClientEvent('QBCore:Notify', src, "You don't have any fuel oil!", 'error')
+          return
+     end
+     -- add to storage
+     storage.metadata.fuel_oil = Round((storage.metadata.fuel_oil + blender.metadata.fuel_oil), 2)
+     TriggerClientEvent('QBCore:Notify', src, blender.metadata.fuel_oil .. " Gallon of fuel oil pumped to storage")
+     -- remove from oilwell
+     blender.metadata.fuel_oil = 0.0
+     cb(true)
+end
+
+InitStorage = function(o, cb)
      local sqlQuery = 'INSERT INTO oilrig_storage (citizenid,name,metadata) VALUES (?,?,?)'
      local metadata = {
           queue = {},
@@ -436,28 +521,39 @@ InitStorage = function(o)
           gasoline = 0.0,
           crudeOil = 0.0
      }
-     local QueryData = {
-          o.citizenid,
-          o.name,
-          json.encode(metadata),
-     }
-     local res = MySQL.Sync.insert(sqlQuery, QueryData)
-     if res ~= 0 then
-          -- inject into runtime
-          GlobalScirptData:newDevice({
-               id = res,
-               citizenid = o.citizenid,
-               name = o.name,
-               metadata = json.encode(metadata)
-          }, 'oilrig_storage')
-          return true
-     end
-     return false
+
+     MySQL.Async.fetchAll('SELECT * FROM oilrig_storage WHERE citizenid = ?', { o.citizenid }, function(res)
+          if next(res) then cb(false) return false end
+
+          local QueryData = {
+               o.citizenid,
+               o.name,
+               json.encode(metadata),
+          }
+          res = MySQL.Sync.insert(sqlQuery, QueryData)
+          if res ~= 0 then
+               -- inject into runtime
+               GlobalScirptData:newDevice({
+                    id = res,
+                    citizenid = o.citizenid,
+                    name = o.name,
+                    metadata = json.encode(metadata)
+               }, 'oilrig_storage')
+
+               if cb then
+                    cb(GlobalScirptData:getDeviceByCitizenId('oilrig_storage', o.citizenid))
+               end
+               return true
+          end
+          cb(false)
+          return false
+     end)
 end
 -- End Storage
 
 -- CDU
-Init_CDU = function(o)
+
+Init_CDU = function(citizenid, cb)
      local sqlQuery = 'INSERT INTO oilrig_cdu (citizenid,metadata) VALUES (?,?)'
      local metadata = {
           temp = 0.0,
@@ -465,28 +561,30 @@ Init_CDU = function(o)
           state = false,
           oil_storage = 0.0
      }
-     local QueryData = {
-          o.citizenid,
-          json.encode(metadata),
-     }
-     local res = MySQL.Sync.insert(sqlQuery, QueryData)
-     if res ~= 0 then
-          -- inject into runtime
-          GlobalScirptData:newDevice({
-               id = res,
-               citizenid = o.citizenid,
-               metadata = json.encode(metadata)
-          }, 'oilrig_cdu')
-          return true
-     end
-     return false
+
+     MySQL.Async.fetchAll('SELECT * FROM oilrig_cdu WHERE citizenid = ?', { citizenid }, function(res)
+          if next(res) then cb(false) return end
+          local QueryData = { citizenid, json.encode(metadata) }
+          res = MySQL.Sync.insert(sqlQuery, QueryData)
+          if res ~= 0 then
+               -- inject into runtime
+               GlobalScirptData:newDevice({
+                    id = res,
+                    citizenid = citizenid,
+                    metadata = json.encode(metadata)
+               }, 'oilrig_cdu')
+               cb(GlobalScirptData:getDeviceByCitizenId('oilrig_cdu', citizenid))
+               return
+          end
+          cb(false)
+     end)
 end
 
 -- End CDU
 
 -- Blender
 
-Init_Blender = function(o)
+Init_Blender = function(citizenid, cb)
      local sqlQuery = 'INSERT INTO oilrig_blender (citizenid,metadata) VALUES (?,?)'
      local metadata = {
           heavy_naphtha = 0.0,
@@ -499,25 +597,30 @@ Init_Blender = function(o)
                other_gases = 0.0,
           }
      }
-     local QueryData = {
-          o.citizenid,
-          json.encode(metadata),
-     }
-     local res = MySQL.Sync.insert(sqlQuery, QueryData)
-     if res ~= 0 then
-          -- inject into runtime
-          GlobalScirptData:newDevice({
-               id = res,
-               citizenid = o.citizenid,
-               metadata = json.encode(metadata)
-          }, 'oilrig_blender')
-          return true
-     end
-     return false
+     MySQL.Async.fetchAll('SELECT * FROM oilrig_blender WHERE citizenid = ?', { citizenid }, function(res)
+          if next(res) then cb(false) end
+
+          local QueryData = {
+               citizenid,
+               json.encode(metadata),
+          }
+          res = MySQL.Sync.insert(sqlQuery, QueryData)
+
+          if res ~= 0 then
+               -- inject into runtime
+               GlobalScirptData:newDevice({
+                    id = res,
+                    citizenid = citizenid,
+                    metadata = json.encode(metadata)
+               }, 'oilrig_blender')
+               cb(GlobalScirptData:getDeviceByCitizenId('oilrig_blender', citizenid))
+               return
+          end
+          cb(false)
+     end)
 end
 
 -- End Blender
-
 --------------------
 -- DATABASE WRAPPER
 --------------------
@@ -535,9 +638,7 @@ function InitilaizeAllDataByDatabaseValues_2()
 end
 
 function GeneralUpdate_2(options)
-     if options.type == nil then
-          return
-     end
+     if options.type == nil then return end
      local sqlQuery = ''
      local QueryData = {}
      for key, value in pairs(options.metadata) do
@@ -548,17 +649,17 @@ function GeneralUpdate_2(options)
      if options.type == 'oilrig_storage' or options.type == 'oilrig_cdu' or options.type == 'oilrig_blender' then
           sqlQuery = 'UPDATE ' .. options.type .. ' SET metadata = ? WHERE citizenid = ? AND metadata <> ?'
           QueryData = {
-               json.encode(options.metadata),
+               json.encode(options.metadata), -- check if data is cahnged
                options.citizenid,
-               json.encode(options.metadata)
+               json.encode(options.metadata) -- check if data is cahnged
           }
      elseif options.type == 'oilrig_oilwell' then
           sqlQuery = 'UPDATE oilrig_position SET metadata = ? WHERE citizenid = ? AND oilrig_hash = ? AND metadata <> ?'
           QueryData = {
-               json.encode(options.metadata),
+               json.encode(options.metadata), -- check if data is cahnged
                options.citizenid,
                options.oilrig_hash,
-               json.encode(options.metadata)
+               json.encode(options.metadata) -- check if data is cahnged
           }
      end
      MySQL.Async.execute(sqlQuery, QueryData, function(e)

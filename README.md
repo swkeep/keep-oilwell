@@ -1,26 +1,47 @@
-![Keep oilwell](https://raw.githubusercontent.com/swkeep/keep-oilwell/main/.github/images/banner2.png)
+![Keep oilwell](https://raw.githubusercontent.com/swkeep/keep-oilwell/main/.github/images/banner3.png)
+
+# Preview
+
+- [Youtube video](https://youtu.be/lGgsUonmXmw)
 
 # Dependencies
 
 - [qb-target](https://github.com/BerkieBb/qb-target)
 - [qb-menu](https://github.com/qbcore-framework/qb-menu)
-- [polyzone](https://github.com/qbcore-framework/PolyZone)
 
 # Key Features
 
-- Kinda NoPixel inspired oil company (of course not complete as their version)
-- Owning oilwell
+- NoPixel inspired oil company
+- Owning oilwells
 - ...
 
-## New patch
+## Patch 1.0.0
 
-- To be able to operate oilwells players must be on duty
-- Oilwells now take damege and player should fix them or they will stop working
+- (important) if you are using old version make sure you have a backup.
+
+- balanced oil production for 1 hour
+- to be able to operate oilwells players must be on duty
+- oilwells now take damege and players should fix them or they will stop working
 - new items to fix oilwells
+- transport accepts all oil types
+- new oil types
+- blender new formula and new elemnts
+- qb-target won't despawn with objects
+- fixed qb-target not showing up
+- fixed props blinking
+- fixed props not spawning if players don't have oilwell job
+- better check for job and onduty
+- new withdraw system
+- withdraw purge menu
+- added octane calculation
+- showing oilwell prop before assigning them
+- oilbarell props
+- to be honest there was so many changes i don't remember most of them!
 
 ## Usage
 
-- add oilwell by "/create oilwell" and then place and asign it to a player.
+- add oilwell by "/create oilwell" and then place and asign it to a player. (admins)
+- or use 'oilwell' item to spawn oilwell
 
 ## Installation
 
@@ -36,7 +57,7 @@
 ["oilbarell"] = {
 		["name"] = "oilbarell",
 		["label"] = "Oil barell",
-		["weight"] = 1000,
+		["weight"] = 15000,
 		["type"] = "item",
 		["image"] = "oilBarrel.png",
 		["unique"] = true,
@@ -44,12 +65,11 @@
 		["shouldClose"] = true,
 		["combinable"] = nil,
 		["description"] = "Oil Barrel"
-}
-	,
+},
 ["oilwell"] = {
 		["name"] = "oilwell",
 		["label"] = "Oilwell",
-		["weight"] = 1000,
+		["weight"] = 50000,
 		["type"] = "item",
 		["image"] = "oilwell.png",
 		["unique"] = false,
@@ -57,68 +77,67 @@
 		["shouldClose"] = true,
 		["combinable"] = nil,
 		["description"] = "Oilwell"
-}
-	,
-	["reliefvalvestring"]       = {
-		["name"] = "reliefvalvestring",
-		["label"] = "Relief Valve String",
-		["weight"] = 1000,
-		["type"] = "item",
-		["image"] = "relief_valve_string.png",
-		["unique"] = false,
-		["useable"] = true,
-		["shouldClose"] = true,
-		["combinable"] = nil,
-		["description"] = "Relief Valve String"
-	},
-	["oilfilter"]               = {
-		["name"] = "oilfilter",
-		["label"] = "Oil Filter",
-		["weight"] = 1000,
-		["type"] = "item",
-		["image"] = "oil_filter.png",
-		["unique"] = false,
-		["useable"] = true,
-		["shouldClose"] = true,
-		["combinable"] = nil,
-		["description"] = "Oil Filter"
-	},
-	["skewgear"]                = {
-		["name"] = "skewgear",
-		["label"] = "Skew Gear",
-		["weight"] = 1000,
-		["type"] = "item",
-		["image"] = "skew_gear.png",
-		["unique"] = false,
-		["useable"] = true,
-		["shouldClose"] = true,
-		["combinable"] = nil,
-		["description"] = "Skew Gear"
-	},
-	["timingchain"]             = {
-		["name"] = "timingchain",
-		["label"] = "Timing Chain",
-		["weight"] = 1000,
-		["type"] = "item",
-		["image"] = "timing_chain.png",
-		["unique"] = false,
-		["useable"] = true,
-		["shouldClose"] = true,
-		["combinable"] = nil,
-		["description"] = "Timing Chain"
-	},
-	["driveshaft"]              = {
-		["name"] = "driveshaft",
-		["label"] = "Drive Shaft",
-		["weight"] = 1000,
-		["type"] = "item",
-		["image"] = "drive_shaft.png",
-		["unique"] = false,
-		["useable"] = true,
-		["shouldClose"] = true,
-		["combinable"] = nil,
-		["description"] = "Drive Shaft"
-	},
+},
+["reliefvalvestring"] = {
+	["name"] = "reliefvalvestring",
+	["label"] = "Relief Valve String",
+	["weight"] = 4000,
+	["type"] = "item",
+	["image"] = "relief_valve_string.png",
+	["unique"] = false,
+	["useable"] = true,
+	["shouldClose"] = true,
+	["combinable"] = nil,
+	["description"] = "Relief Valve String"
+},
+["oilfilter"] = {
+	["name"] = "oilfilter",
+	["label"] = "Oil Filter",
+	["weight"] = 5000,
+	["type"] = "item",
+	["image"] = "oil_filter.png",
+	["unique"] = false,
+	["useable"] = true,
+	["shouldClose"] = true,
+	["combinable"] = nil,
+	["description"] = "Oil Filter"
+},
+["skewgear"] = {
+	["name"] = "skewgear",
+	["label"] = "Skew Gear",
+	["weight"] = 6000,
+	["type"] = "item",
+	["image"] = "skew_gear.png",
+	["unique"] = false,
+	["useable"] = true,
+	["shouldClose"] = true,
+	["combinable"] = nil,
+	["description"] = "Skew Gear"
+},
+["timingchain"] = {
+	["name"] = "timingchain",
+	["label"] = "Timing Chain",
+	["weight"] = 7000,
+	["type"] = "item",
+	["image"] = "timing_chain.png",
+	["unique"] = false,
+	["useable"] = true,
+	["shouldClose"] = true,
+	["combinable"] = nil,
+	["description"] = "Timing Chain"
+},
+["driveshaft"] = {
+	["name"] = "driveshaft",
+	["label"] = "Drive Shaft",
+	["weight"] = 5000,
+	["type"] = "item",
+	["image"] = "drive_shaft.png",
+	["unique"] = false,
+	["useable"] = true,
+	["shouldClose"] = true,
+	["combinable"] = nil,
+	["description"] = "Drive Shaft"
+},
 
 ```
 
@@ -159,9 +178,8 @@
 
 ## Step 3: tooltip
 
-- i'm using lj-inventory and it's just reskin of qb-inventory.
-- in inventory\js\app.js find FormatItemInfo() there is if statement like: if (itemData.name == "id_card")
-- track where all of elseif statments are ended then add else if below.
+- in qb-inventory\js\app.js find FormatItemInfo() there is if statement like: if (itemData.name == "id_card")
+- track where all of elseif statments are ended then add code below.
 
 ```javascript
 else if (itemData.name == "oilbarell") {
@@ -169,6 +187,14 @@ else if (itemData.name == "oilbarell") {
 	$(".item-info-description").html("<p>Gal: " + itemData.info.gal + "</p>" + "<p>Type: " + itemData.info.type + "</p>" + "<p>Octane: " + itemData.info.avg_gas_octane + "</p>");
 }
 ```
+
+# Support
+
+- [Discord](https://discord.gg/ccMArCwrPV)
+
+# Donation
+
+- [Donation](https://swkeep.github.io)
 
 ![Keep oilwell](https://raw.githubusercontent.com/swkeep/keep-oilwell/main/.github/images/screenshots/2022-05-17-16_00_11-000275.jpg)
 ![Keep oilwell](https://raw.githubusercontent.com/swkeep/keep-oilwell/main/.github/images/screenshots/2022-05-17-16_00_18-000276.jpg)

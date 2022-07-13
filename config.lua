@@ -1,9 +1,14 @@
 Oilwell_config = Oilwell_config or {}
 
+Oilwell_config.inventory_max_size = 41
 Oilwell_config.AnimationSpeedDivider = 20 -- higher value => less animation speed at 100%
 Oilwell_config.actionSpeed = 5 -- how fast oilpump actionspeed is updated to new action speed / just visual
+Oilwell_config.fuel_script = 'LegacyFuel'
 
 Oilwell_config.Settings = {
+     size = {
+          oilwell_storage = 10000,
+     },
      oil_well = {
           blip = {
                sprite = 436,
@@ -17,11 +22,11 @@ Oilwell_config.Settings = {
      capacity = {
           oilbarell = {
                size = 5000, -- gal
-               price = 500
+               cost = 500
           },
           truck = {
                size = 5000, -- gal placeholder
-               price = 25000
+               cost = 25000
           }
      }
 }
@@ -39,9 +44,9 @@ Oilwell_config.locations = {
           }
      },
      distillation = {
-          position = vector4(1674, -1649.7, 110.2, 10),
+          position = vector4(1674, -1650.5, 110.2, 10),
           rotation = vector3(0.0, 0.0, 10.0),
-          model = 'v_ind_cm_electricbox',
+          model = 'prop_gas_tank_01a',
           blip = {
                sprite = 467,
                colour = 5,
@@ -109,8 +114,14 @@ Oilwell_config.Delivery = {
 }
 
 Oilwell_config.Transport = {
-     max_stock = 100000, --gal
-     price = 0.5, --per gal
+     max_stock = 20000, --gal per type
+     prices = {
+          crudeOil = 3,
+          gasoline = 7,
+          fuel_oil = 3.5
+     },
+     barell_refund = 200,
+     duration = 5 --sec
 }
 
 -- Make separate file for locale
@@ -118,11 +129,31 @@ Oilwell_config.Locale = {
      mail = {
           sender = 'Oil Company',
           subject = 'Payment Receipt',
-          message = 'Dear %s %s, <br /><br />This email is a copy of Payment Receipt.<br />Your payment was: <strong>%.2f$</strong><br />Sold amount : <strong> %d (gal)</strong><br />'
+          message = 'Dear %s %s, <br /><br />This email is a copy of Payment Receipt.<br />Your payment was: <strong>%.2f$</strong><br />Sold amount : <strong> %d (gal)</strong><br />Barrel refund : <strong> %d$</strong>'
      },
      info = {
           mr = 'Mr.',
           mrs = 'Mrs.',
+     }
+}
+
+Oilwell_config.TruckWithdraw = {
+     npc = {
+          model = 'S_M_Y_Construct_02',
+          variant = {},
+          coords = vector4(1737.49, -1691.76, 111.73, 116.07),
+          scenario = 'WORLD_HUMAN_CLIPBOARD',
+          flag = 1,
+          freeze = true,
+          invincible = true,
+          blockevents = true,
+     },
+     box = {
+          minz_offset = -1,
+          maxz_offset = 1.75,
+          w = 1.5,
+          l = 2.35,
+          heading = 160.0
      }
 }
 
