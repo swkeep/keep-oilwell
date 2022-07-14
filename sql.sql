@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS `oilrig_storage` (
   KEY `citizenid` (`citizenid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `oilrig_CDU` (
+CREATE TABLE IF NOT EXISTS `oilrig_cdu` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `citizenid` varchar(50) DEFAULT NULL,
   `metadata` TEXT NOT NULL DEFAULT '0',
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS `oilrig_CDU` (
   KEY `citizenid` (`citizenid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `oilrig_Blender` (
+CREATE TABLE IF NOT EXISTS `oilrig_blender` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `citizenid` varchar(50) DEFAULT NULL,
   `metadata` TEXT NOT NULL DEFAULT '0',
