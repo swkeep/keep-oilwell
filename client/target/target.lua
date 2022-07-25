@@ -1,3 +1,5 @@
+local QBCore = exports['qb-core']:GetCoreObject()
+
 local loaded = false
 local PED = nil
 local function setPedVariation(pedHnadle, variation)
@@ -92,6 +94,28 @@ local function makeCore()
           loaded = true
      end)
 end
+
+AddEventHandler('keep-oilwell:client:refund_truck', function(data)
+     local coord = GetEntityCoords(data.entity)
+     local spawnLocation = vector3(Oilwell_config.Delivery.SpawnLocation.x, Oilwell_config.Delivery.SpawnLocation.y,
+          Oilwell_config.Delivery.SpawnLocation.z)
+
+     local plate = data.vehiclePlate
+
+     if #(coord - spawnLocation) > 5.0 then
+          QBCore.Functions.Notify('You are not close to truck refunding area', "primary")
+          return
+     end
+     QBCore.Functions.TriggerCallback('keep-oilwell:server:refund_truck', function(result)
+          if result == true then
+               local netId = NetworkGetNetworkIdFromEntity(data.entity)
+               local entity = NetworkGetEntityFromNetworkId(netId)
+               NetworkRequestControlOfEntity(entity)
+               DeleteEntity(entity)
+          end
+     end, plate)
+end)
+
 
 AddEventHandler('onResourceStart', function(resourceName)
      if (GetCurrentResourceName() ~= resourceName) then return end

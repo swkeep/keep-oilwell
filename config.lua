@@ -107,6 +107,7 @@ Oilwell_config.locations = {
 }
 
 Oilwell_config.Delivery = {
+     refund = 20000,
      TriggerLocation = vector3(1737.45, -1691.28, 112.73),
      SpawnLocation = vector4(1741.19, -1694.61, 112.73, 125.57),
      DinstanceToTrigger = 5.0,

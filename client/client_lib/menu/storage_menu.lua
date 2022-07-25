@@ -201,7 +201,23 @@ MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
      SetNetworkIdAlwaysExistsForPlayer(NetworkGetNetworkIdFromEntity(veh), PlayerPedId(), true)
      TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(veh))
      TriggerEvent("vehiclekeys:client:SetOwner", vehiclePlate)
-
+     TriggerServerEvent('keep-oilwell:server_lib:update_vehicle', vehiclePlate)
+     exports['qb-target']:AddEntityZone("device-" .. vehiclePlate, veh, {
+          name = "device-" .. vehiclePlate,
+          heading = GetEntityHeading(veh),
+          debugPoly = false,
+     }, {
+          options = {
+               {
+                    type = "client",
+                    event = "keep-oilwell:client:refund_truck",
+                    icon = "fa-solid fa-location-arrow",
+                    label = "refund Truck",
+                    vehiclePlate = vehiclePlate
+               },
+          },
+          distance = 2.5
+     })
      SetModelAsNoLongerNeeded(model)
 end
 
