@@ -123,13 +123,9 @@ AddEventHandler('onResourceStart', function(resourceName)
      makeCore()
 end)
 
-AddEventHandler('QBCore:Client:OnPlayerLoaded', function()
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
      Wait(1000)
      makeCore()
-end)
-
-AddEventHandler('QBCore:Client:OnPlayerUnload', function()
-
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)

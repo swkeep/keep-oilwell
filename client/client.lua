@@ -82,7 +82,6 @@ end
 
 function OilRigs:DynamicSpawner()
      self.dynamicSpawner_state = true
-     local plyped = PlayerPedId()
      local object_spawn_distance = 125.0
 
      CreateThread(function()
@@ -109,7 +108,7 @@ function OilRigs:DynamicSpawner()
           end
 
           while self.dynamicSpawner_state do
-               local pedCoord = GetEntityCoords(plyped)
+               local pedCoord = GetEntityCoords(PlayerPedId())
                -- oilwells/pumps
                for index, value in pairs(self.data_table) do
                     local c = value.position.coord
@@ -122,22 +121,19 @@ function OilRigs:DynamicSpawner()
                          DeleteEntity(self.data_table[index].entity)
                          self.data_table[index].entity = nil
                     end
-
                end
 
                for index, value in pairs(Oilwell_config.locations) do
-                    value.position = vector3(value.position.x, value.position.y, value.position.z)
-                    local distance = #(value.position - pedCoord)
+                    local position = vector3(value.position.x, value.position.y, value.position.z)
+                    local distance = #(position - pedCoord)
                     if self.core_entities[index] == nil then
                          self.core_entities[index] = {}
                     end
-
                     if distance < object_spawn_distance and self.core_entities[index].entity == nil then
-                         local entity = spawnObjects(value.model, {
-                              coord = { x = value.position.x, y = value.position.y, z = value.position.z, },
+                         self.core_entities[index].entity = spawnObjects(value.model, {
+                              coord = { x = position.x, y = position.y, z = position.z, },
                               rotation = { x = value.rotation.x, y = value.rotation.y, z = value.rotation.z, }
                          })
-                         self.core_entities[index].entity = entity
                     elseif distance > object_spawn_distance and self.core_entities[index].entity ~= nil then
                          DeleteEntity(self.core_entities[index].entity)
                          self.core_entities[index].entity = nil
@@ -361,6 +357,10 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
           loadData()
      end)
      StartBarellAnimation()
+end)
+
+RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+     OilRigs.dynamicSpawner_state = false
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
