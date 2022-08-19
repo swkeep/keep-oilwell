@@ -9,7 +9,7 @@ AddEventHandler('onResourceStart', function(resourceName)
           return
      end
      GlobalScirptData:wipeALL()
-     GlobalScirptData:startInit()
+     Sync_with_database()
 end)
 -- ==========================================
 --          Update / server Side
@@ -33,8 +33,13 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:PumpOilToStorageCallback', f
           return
      end
      local oilrig, id = GlobalScirptData:getByHash(data)
-     if oilrig.citizenid ~= player.PlayerData.citizenid then
-          TriggerClientEvent('QBCore:Notify', source, "You are not owner of Oilwell!")
+     if not oilrig then
+          cb(false)
+          return
+     end
+     local is_employee, is_owner = oilrig.is_employee(player.PlayerData.citizenid)
+     if not is_employee and not is_owner then
+          TriggerClientEvent('QBCore:Notify', source, "You do no have access to this part!")
           cb(false)
           return
      end
@@ -43,8 +48,7 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:PumpOilToStorageCallback', f
           cb(false)
           return
      end
-     SendOilToStorage(oilrig, player, source, cb)
-
+     SendOilToStorage(oilrig, source, cb)
 end)
 
 QBCore.Functions.CreateCallback('keep-oilrig:server:getStorageData', function(source, cb)
@@ -389,8 +393,9 @@ RegisterNetEvent('keep-oilrig:server:updateSpeed', function(inputData, id)
      if player == nil then return end
      -- validate speed for 0 - 100
      local oilrig = GlobalScirptData:read(id)
-     if player.PlayerData.citizenid ~= oilrig.citizenid then
-          TriggerClientEvent('QBCore:Notify', source, "You are not owner of oil pump!")
+     local is_employee, is_owner = oilrig.is_employee(player.PlayerData.citizenid)
+     if not is_employee and not is_owner then
+          TriggerClientEvent('QBCore:Notify', source, "You do not have access to this oilwell!", 'error')
           return
      end
 
@@ -699,6 +704,12 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:getNetIDs', function(source,
      local temp = {}
      for key, value in pairs(GlobalScirptData:readAll()) do
           temp[key] = deepcopy(value)
+          temp[key].employees_list = nil
+          temp[key].employees = nil
+          temp[key].is_employee = nil
+          temp[key].metadata = nil
+          temp[key].citizenid = nil
+
           if value.citizenid == citizenid then
                temp[key].isOwner = true
           else
@@ -774,12 +785,12 @@ QBCore.Functions.CreateCallback('keep-oilrig:server:regiserOilrig', function(sou
           GlobalScirptData:newOilwell({
                id = id,
                citizenid = PlayerData.citizenid,
-               position = json.encode(position),
+               position = position,
                name = inputData.name,
                state = false,
                oilrig_hash = hash,
-               metadata = json.encode(metadata)
-          })
+               metadata = metadata
+          }, {})
           TriggerClientEvent('keep-oilwell:client:force_reload', -1)
           cb(true)
      else
@@ -839,8 +850,13 @@ QBCore.Functions.CreateCallback('keep-oilwell:server:fix_oil_well', function(sou
      local items = GetOilPumpItems(oilrig_hash)
      local stash = 'oilPump_' .. oilrig_hash
      local oil_well = GlobalScirptData:getByHash(oilrig_hash)
-
-     for item, data in pairs(items) do
+     if not oil_well then cb(false) return end
+     local is_employee, is_owner = oil_well.is_employee(Player.PlayerData.citizenid)
+     if not is_employee and not is_owner then
+          cb(false)
+          return
+     end
+     for _, data in pairs(items) do
           local _item, part = isOneOfItems(data)
           if _item then
                local increase = oil_well.metadata.part_info[part] + 10 * _item.amount
@@ -859,6 +875,147 @@ QBCore.Functions.CreateCallback('keep-oilwell:server:fix_oil_well', function(sou
      cb(true)
 end)
 
+QBCore.Functions.CreateCallback('keep-oilwell:server:is_employee', function(source, cb, oilrig_hash)
+     local Player = QBCore.Functions.GetPlayer(source)
+     local oil_well = GlobalScirptData:getByHash(oilrig_hash)
+     if not oil_well then cb(false) return end
+     cb(oil_well.is_employee(Player.PlayerData.citizenid))
+end)
+
+QBCore.Functions.CreateCallback('keep-oilwell:server:employees_list', function(source, cb, oilrig_hash)
+     local Player = QBCore.Functions.GetPlayer(source)
+     local oil_well = GlobalScirptData:getByHash(oilrig_hash)
+     if not oil_well then cb(false) return end
+     local is_employee, is_owner = oil_well.is_employee(Player.PlayerData.citizenid)
+     if not is_employee and not is_owner then
+          TriggerClientEvent('QBCore:Notify', source, "You can not see this list!", 'error')
+          cb(false)
+          return
+     end
+     local list = deepcopy(oil_well.employees_list())
+     for index, value in ipairs(list) do
+          value.id = nil
+          local Player = QBCore.Functions.GetPlayerByCitizenId(value.citizenid)
+          if Player then
+               value.charinfo = Player.PlayerData.charinfo
+               value.online = true
+          else
+               Player = QBCore.Player.GetOfflinePlayer(value.citizenid)
+               if not Player then
+                    value.charinfo = {
+                         firstname = 'deleted',
+                         lastname = ''
+                    }
+                    value.online = false
+               end
+          end
+     end
+     cb(list)
+end)
+
+RegisterNetEvent('keep-oilwell:server:add_employee', function(oilrig_hash, state_id)
+     state_id = tonumber(state_id)
+     local src = source
+     local Player = QBCore.Functions.GetPlayer(src)
+     local oil_well = GlobalScirptData:getByHash(oilrig_hash)
+     if not oil_well then return end
+     local _, is_owner = oil_well.is_employee(Player.PlayerData.citizenid)
+     if not is_owner then
+          TriggerClientEvent('QBCore:Notify', src, "You must be owner of this oilwell!", 'error')
+          return
+     end
+     local new_employee = QBCore.Functions.GetPlayer(state_id)
+     if not new_employee then
+          TriggerClientEvent('QBCore:Notify', src, "Wrong state id!", 'error')
+          return
+     end
+
+     if new_employee.PlayerData.citizenid == oil_well.citizenid then
+          TriggerClientEvent('QBCore:Notify', src, "You can not add owner as an employee", 'error')
+          return
+     end
+
+     local sqlQuery = 'INSERT INTO oilcompany_employees (citizenid, oilrig_hash) VALUES (:citizenid, :oilrig_hash)'
+     local QueryData = {
+          ['citizenid']   = new_employee.PlayerData.citizenid,
+          ['oilrig_hash'] = oilrig_hash,
+     }
+     MySQL.Async.execute(sqlQuery, QueryData, function()
+          local e_sql = 'SELECT * FROM oilcompany_employees WHERE oilrig_hash = ?'
+          oil_well.employees = MySQL.Sync.fetchAll(e_sql, { oilrig_hash })
+          local id = #oil_well.employees + 1
+          oil_well.employees[id] = {
+               id = id,
+               oilrig_hash = oil_well.oilrig_hash,
+               citizenid = oil_well.citizenid
+          }
+          TriggerClientEvent('QBCore:Notify', src, "New employee added to the list", 'success')
+     end)
+end)
+
+RegisterNetEvent('keep-oilwell:server:remove_employee', function(oilrig_hash, citizenid)
+     if type(oilrig_hash) ~= 'string' or type(citizenid) ~= 'string' then
+          print('wrong type')
+          return
+     end
+     local src = source
+     local Player = QBCore.Functions.GetPlayer(src)
+     local oil_well = GlobalScirptData:getByHash(oilrig_hash)
+     if not oil_well then return end
+     if not citizenid then return end
+     local _, is_owner = oil_well.is_employee(Player.PlayerData.citizenid)
+     if not is_owner then
+          TriggerClientEvent('QBCore:Notify', src, "You must be owner of this oilwell!", 'error')
+          return
+     end
+
+     if citizenid == oil_well.citizenid then
+          TriggerClientEvent('QBCore:Notify', src, "You can not fire yourself", 'error')
+          return
+     end
+
+     local sqlQuery = 'DELETE FROM oilcompany_employees WHERE citizenid = ?'
+     local QueryData = {
+          citizenid
+     }
+     MySQL.Async.execute(sqlQuery, QueryData, function()
+          local e_sql = 'SELECT * FROM oilcompany_employees WHERE oilrig_hash = ?'
+          oil_well.employees = MySQL.Sync.fetchAll(e_sql, { oilrig_hash })
+          local id = #oil_well.employees + 1
+          oil_well.employees[id] = {
+               id = id,
+               oilrig_hash = oil_well.oilrig_hash,
+               citizenid = oil_well.citizenid
+          }
+          TriggerClientEvent('QBCore:Notify', src, "Employee fired!", 'success')
+     end)
+end)
+
+QBCore.Functions.CreateCallback('keep-oilwell:server:oilwell_metadata', function(source, cb, oilrig_hash)
+     local oil_well = GlobalScirptData:getByHash(oilrig_hash)
+     if not oil_well then cb(false) return end
+     cb(oil_well.metadata)
+end)
+
+RegisterNetEvent('keep-oilwell:server:remove_oilwell', function(oilrig_hash)
+     -- flag a oilwell as deleted
+     local src = source
+     local Player = QBCore.Functions.GetPlayer(src)
+     local oil_well = GlobalScirptData:getByHash(oilrig_hash)
+     if not oil_well then return print('oilwell not found', src, oilrig_hash) end
+     if not Player.PlayerData.job.isboss then
+          DropPlayer(src, 'you are not CEO')
+          return
+     end
+
+     local sqlQuery = 'UPDATE oilrig_position SET deleted = ? WHERE oilrig_hash = ?'
+     MySQL.Async.execute(sqlQuery, { 1, oil_well.oilrig_hash }, function()
+          TriggerClientEvent('QBCore:Notify', src,
+               "The deconstruction request is accepted it will be removed after the tsunami!",
+               'success'
+          )
+     end)
+end)
 -- ===========================
 --          Commands
 -- ===========================

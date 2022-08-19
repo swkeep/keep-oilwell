@@ -1,3 +1,5 @@
+BalanceRecipe = {}
+
 function GeneralInsert(options)
      local sqlQuery = 'INSERT INTO oilrig_position (citizenid,name,oilrig_hash,position,metadata,state) VALUES (?,?,?,?,?,?)'
      local QueryData = {
@@ -71,22 +73,6 @@ function deepcopy(orig, copies)
      return copy
 end
 
-local rest = {
-     description = 'Oil Barrel',
-     unique = true,
-     name = 'oilbarell',
-     image = 'oilBarrel.png',
-     weight = 1000,
-     slot = 1,
-     label = 'Oil barell',
-     info = {
-          gal = 169.85
-     },
-     amount = 1,
-     shouldClose = true,
-     useable = false, type = 'item'
-}
-
 local function inRange(x, min, max)
      return (x >= min and x <= max)
 end
@@ -150,7 +136,6 @@ function GetSpeed_degradationMulti(speed)
      return 0
 end
 
-BalanceRecipe = {}
 function BalanceRecipe:SpeedRelated(type, condition)
      local data = {
           ['OilwellTemperatureGrowth'] = {

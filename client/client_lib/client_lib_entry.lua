@@ -2,7 +2,20 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 local function isOwner(entity)
      local oilrig = OilRigs:getByEntityHandle(entity)
-     return (oilrig ~= nil and oilrig.isOwner == true)
+     if not oilrig then return print('failed to get oilwell') end
+     local is_employee = nil
+     local is_owner = nil
+     -- await didn't work!
+     QBCore.Functions.TriggerCallback('keep-oilwell:server:is_employee', function(_is_employee, _is_owner)
+          is_employee, is_owner = _is_employee, _is_owner
+     end, oilrig.oilrig_hash)
+     for i = 1, 5, 1 do
+          if is_employee ~= nil then
+               break
+          end
+          Wait(50)
+     end
+     return is_employee, is_owner
 end
 
 local function Draw2DText(content, font, colour, scale, x, y)
@@ -77,9 +90,6 @@ function ChooseSpawnLocation()
           end
           DrawLine(position.x, position.y, position.z, coords.x, coords.y,
                coords.z, color.r, color.g, color.b, color.a)
-          -- DrawMarker(28, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 180.0,
-          --      0.0, 0.1, 0.1, 0.1, color.r, color.g, color.b, color.a,
-          --      false, true, 2, nil, nil, false)
           SetEntityCollision(oilrig, false, false)
           SetEntityCoords(oilrig, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0)
      end
@@ -110,7 +120,6 @@ function replaceString(o)
           --  oilwells
           local oilrig = OilRigs:getById(o.id)
           s = s:gsub("OILWELLNAME", oilrig.name)
-          s = s:gsub("CITIZENID", oilrig.citizenid)
           s = s:gsub("OILWELL_HASH", oilrig.oilrig_hash)
           s = s:gsub("DB_ID_RAW", o.id)
           s = s:gsub("TYPE", o.type)
@@ -123,7 +132,7 @@ end
 
 function createOwnerQbTarget(hash, coord)
      exports['qb-target']:RemoveZone("oil-rig-" .. hash)
-     exports['qb-target']:AddBoxZone("oil-rig-" .. hash, coord, 3, 5, {
+     exports['qb-target']:AddBoxZone("oil-rig-" .. hash, coord, 4, 5, {
           name = "oil-rig-" .. hash,
           debugPoly = false,
           minZ = coord.z,
@@ -161,10 +170,55 @@ function createOwnerQbTarget(hash, coord)
                          return isOwner(entity)
                     end,
                },
+               {
+                    type = "client",
+                    event = "keep-oilwell:client:remove_oilwell",
+                    icon = "fa-regular fa-file-lines",
+                    label = "Remove Oilwell",
+                    canInteract = function(entity)
+                         if not CheckJob() then
+                              return false
+                         end
+                         if not (PlayerJob.grade.level == 4) then
+                              return false
+                         end
+                         if not CheckOnduty() then
+                              return false
+                         end
+                         return true
+                    end,
+               },
           },
           distance = 2.5
      })
 end
+
+RegisterNetEvent('keep-oilwell:client:remove_oilwell', function(data)
+     local oilwell = OilRigs:getByEntityHandle(data.entity)
+     for i = 1, 3, 1 do
+          local value = RandomHash(4)
+          local inputData = exports['qb-input']:ShowInput({
+               header = 'Enter This Values (' .. value .. ')',
+               inputs = {
+                    {
+                         type = 'text',
+                         isRequired = true,
+                         name = 'RandomHash',
+                         text = ''
+                    },
+               }
+          })
+          if not inputData then
+               QBCore.Functions.Notify('Canceled', "primary")
+               return
+          end
+          if inputData.RandomHash ~= value then
+               QBCore.Functions.Notify('Failed', "primary")
+               return
+          end
+     end
+     TriggerServerEvent('keep-oilwell:server:remove_oilwell', oilwell.oilrig_hash)
+end)
 
 function addQbTargetToCoreEntities(coord, Type)
      local key = Type
@@ -382,13 +436,7 @@ end)
 ---force remove objects in area
 ---@param coord table
 RegisterNetEvent('keep-oilrig:client:clearArea', function(coord)
-     ClearAreaOfObjects(
-          coord.x,
-          coord.y,
-          coord.z,
-          5.0,
-          1
-     )
+     ClearAreaOfObjects(coord.x, coord.y, coord.z, 5.0, 1)
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function(PlayerJob)

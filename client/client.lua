@@ -30,7 +30,6 @@ function OilRigs:add(s_res, id)
           local blip_settings = Oilwell_config.Settings.oil_well.blip
           blip_settings.type = 'oil_well'
           blip_settings.id = id
-
           self.data_table[id].blip_handle = createCustom(self.data_table[id].position.coord, blip_settings)
      end
 end
@@ -40,7 +39,9 @@ function OilRigs:update(s_res, id)
      s_res.entity = self.data_table[id].entity
      s_res.Qbtarget = self.data_table[id].Qbtarget
      self.data_table[id] = s_res
-     self:syncSpeed(self.data_table[id].entity, self.data_table[id].metadata.speed)
+     QBCore.Functions.TriggerCallback('keep-oilwell:server:oilwell_metadata', function(metadata)
+          self:syncSpeed(self.data_table[id].entity, metadata.speed)
+     end, self.data_table[id].oilrig_hash)
 end
 
 function OilRigs:startUpdate(cb)
@@ -116,7 +117,9 @@ function OilRigs:DynamicSpawner()
                     local distance = #(c - pedCoord)
                     if distance < object_spawn_distance and self.data_table[index].entity == nil then
                          self.data_table[index].entity = spawnObjects(rigmodel, self.data_table[index].position)
-                         self:syncSpeed(self.data_table[index].entity, self.data_table[index].metadata.speed)
+                         QBCore.Functions.TriggerCallback('keep-oilwell:server:oilwell_metadata', function(metadata)
+                              self:syncSpeed(self.data_table[index].entity, metadata.speed)
+                         end, self.data_table[index].oilrig_hash)
                     elseif distance > object_spawn_distance and self.data_table[index].entity ~= nil then
                          DeleteEntity(self.data_table[index].entity)
                          self.data_table[index].entity = nil
@@ -166,32 +169,39 @@ RegisterNetEvent('keep-oilrig:client:changeRigSpeed', function(qbtarget)
           QBCore.Functions.Notify('You must be on duty!', "error")
           return false
      end
-     OilRigs:startUpdate(function()
-          local rig = OilRigs:getByEntityHandle(qbtarget.entity)
-          local inputData = exports['qb-input']:ShowInput({
-               header = "Change oil rig speed",
-               submitText = "change",
-               inputs = { {
-                    type = 'text',
-                    isRequired = true,
-                    name = 'speed',
-                    text = 'current speed: ' .. rig.metadata.speed
-               },
-               }
-          })
-          if inputData then
-               local speed = tonumber(inputData.speed)
-               if not inputData.speed then
-                    return
+     local rig = OilRigs:getByEntityHandle(qbtarget.entity)
+     if not rig then
+          return print('oilwell not found')
+     end
+     QBCore.Functions.TriggerCallback('keep-oilwell:server:oilwell_metadata', function(metadata)
+          OilRigs:startUpdate(function()
+
+               local inputData = exports['qb-input']:ShowInput({
+                    header = "Change oil rig speed",
+                    submitText = "change",
+                    inputs = {
+                         {
+                              type = 'text',
+                              isRequired = true,
+                              name = 'speed',
+                              text = 'current speed ' .. metadata.speed
+                         },
+                    }
+               })
+               if inputData then
+                    local speed = tonumber(inputData.speed)
+                    if not inputData.speed then
+                         return
+                    end
+                    if not (0 <= speed and speed <= 100) then
+                         QBCore.Functions.Notify('speed must be between 0 to 100', "error")
+                         return
+                    end
+                    QBCore.Functions.Notify('oilwell speed changed to ' .. speed, "success")
+                    TriggerServerEvent('keep-oilrig:server:updateSpeed', inputData, rig.id)
                end
-               if not (0 <= speed and speed <= 100) then
-                    QBCore.Functions.Notify('speed must be between 0 to 100', "error")
-                    return
-               end
-               QBCore.Functions.Notify('oilwell speed changed to ' .. speed, "success")
-               TriggerServerEvent('keep-oilrig:server:updateSpeed', inputData, rig.id)
-          end
-     end)
+          end)
+     end, rig.oilrig_hash)
 end)
 
 local function loadData()
@@ -200,7 +210,6 @@ local function loadData()
           PlayerJob = PlayerData.job
           OnDuty = PlayerData.job.onduty
           QBCore.Functions.TriggerCallback('keep-oilrig:server:getNetIDs', function(result)
-
                for key, value in pairs(result) do
                     OilRigs:add(value, key)
                end
@@ -293,6 +302,7 @@ AddEventHandler('keep-oilrig:client:spawn', function()
           end
      end, coords)
 end)
+
 
 RegisterNetEvent('keep-oilrig:client:enterInformation', function(qbtarget)
      local inputData = exports['qb-input']:ShowInput({

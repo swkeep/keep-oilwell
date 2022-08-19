@@ -73,44 +73,35 @@ GlobalScirptData = {
 
 local serverUpdateInterval = 10000 --  database update interval
 
---class
-function GlobalScirptData:startInit()
-     InitilaizeAllDataByDatabaseValues_2()
-end
+function GlobalScirptData:newOilwell(oilwell, employees)
+     if self.oil_well[oilwell] ~= nil then return end
+     local id = #employees + 1
+     employees[id] = {
+          id = id,
+          oilrig_hash = oilwell.oilrig_hash,
+          citizenid = oilwell.citizenid
+     }
 
-function GlobalScirptData:initPhaseTwo(o)
-     -- wont work without CreateThread
-     Citizen.CreateThread(function()
-          -- oil_well
-          for key, value in pairs(o.oil_well) do
-               self:newOilwell(value)
-          end
-          -- oilrig_storage
-          for key, value in pairs(o.oilrig_storage) do
-               self:newDevice(value, 'oilrig_storage')
-          end
-          -- oilrig_cdu
-          for key, value in pairs(o.oilrig_cdu) do
-               self:newDevice(value, 'oilrig_cdu')
-          end
-          -- -- oilrig_blender
-          for key, value in pairs(o.oilrig_blender) do
-               self:newDevice(value, 'oilrig_blender')
-          end
-          self:saveThread()
-          createMetadataTrackers(self.oil_well, self.devices)
-     end)
-end
+     self.oil_well[oilwell.id] = {}
+     self.oil_well[oilwell.id] = oilwell
+     -- last employee is owner of oilwell
+     self.oil_well[oilwell.id].employees = employees
 
-function GlobalScirptData:newOilwell(oilwell)
-     if self.oil_well[oilwell] ~= nil then
-          return
+     self.oil_well[oilwell.id].is_employee = function(citizenid)
+          for key, value in ipairs(self.oil_well[oilwell.id].employees) do
+               if value.citizenid == citizenid then
+                    if self.oil_well[oilwell.id].citizenid == citizenid then
+                         return true, true
+                    end
+                    return true, false
+               end
+          end
+          return false, false
      end
-     local id = oilwell.id
-     self.oil_well[id] = {}
-     oilwell.metadata = json.decode(oilwell.metadata)
-     oilwell.position = json.decode(oilwell.position)
-     self.oil_well[id] = oilwell
+
+     self.oil_well[oilwell.id].employees_list = function()
+          return self.oil_well[oilwell.id].employees
+     end
 end
 
 function GlobalScirptData:newDevice(device, Type)
@@ -127,24 +118,20 @@ function GlobalScirptData:newDevice(device, Type)
      elseif Type == 'oilrig_blender' then
           device.metadata = json.decode(device.metadata)
           self.devices.oilrig_blender[device.id] = device
-
      end
 end
 
 function GlobalScirptData:saveThread()
      CreateThread(function()
           while true do
-               self.oldTable = deepcopy({
-                    self.devices,
-                    self.oil_well,
-               })
+               self.oldTable_oilwells = deepcopy(self.oil_well)
+               self.oldTable_oilrig_storage = deepcopy(self.devices.oilrig_storage)
+               self.oldTable_oilrig_cdu = deepcopy(self.devices.oilrig_cdu)
+               self.oldTable_oilrig_blender = deepcopy(self.devices.oilrig_blender)
+
                Wait(serverUpdateInterval)
-               --- save metadata when we detected changes!
-               if isTableChanged(self.oldTable, {
-                    self.devices,
-                    self.oil_well,
-               }) == true then
-                    for key, value in pairs(self.oil_well) do
+               for id, value in pairs(self.oil_well) do
+                    if not equals(self.oldTable_oilwells[id], self.oil_well[id]) then
                          GeneralUpdate_2({
                               type = 'oilrig_oilwell',
                               citizenid = value.citizenid,
@@ -152,24 +139,33 @@ function GlobalScirptData:saveThread()
                               metadata = value.metadata
                          })
                     end
-                    -- save storage data
-                    for id, storage in pairs(self.devices.oilrig_storage) do
+               end
+
+               -- save storage data
+               for id, storage in pairs(self.devices.oilrig_storage) do
+                    if not equals(self.oldTable_oilrig_storage[id], self.devices.oilrig_storage[id]) then
+
                          GeneralUpdate_2({
                               type = 'oilrig_storage',
                               citizenid = storage.citizenid,
                               metadata = storage.metadata
                          })
                     end
-                    -- save CDU data
-                    for id, storage in pairs(self.devices.oilrig_cdu) do
+               end
+
+               -- save CDU data
+               for id, storage in pairs(self.devices.oilrig_cdu) do
+                    if not equals(self.oldTable_oilrig_cdu[id], self.devices.oilrig_cdu[id]) then
                          GeneralUpdate_2({
                               type = 'oilrig_cdu',
                               citizenid = storage.citizenid,
                               metadata = storage.metadata
                          })
                     end
-                    -- save blender data
-                    for id, blender in pairs(self.devices.oilrig_blender) do
+               end
+
+               for id, blender in pairs(self.devices.oilrig_blender) do
+                    if not equals(self.oldTable_oilrig_blender[id], self.devices.oilrig_blender[id]) then
                          GeneralUpdate_2({
                               type = 'oilrig_blender',
                               citizenid = blender.citizenid,
@@ -189,7 +185,10 @@ function GlobalScirptData:wipeALL()
           oilrig_cdu = {},
           oilrig_blender = {},
      }
-     self.oldTable = {}
+     self.oldTable_oilwells = {}
+     self.oldTable_oilrig_storage = {}
+     self.oldTable_oilrig_cdu = {}
+     self.oldTable_oilrig_blender = {}
 end
 
 function GlobalScirptData:getByHash(oilrig_hash)
@@ -222,27 +221,6 @@ function GlobalScirptData:getDeviceByCitizenId(Type, citizenid)
      return false
 end
 
-----------------------
--- Data Manipulations
-----------------------
-
-function createMetadataTrackers(oil_wells, devices)
-     CreateThread(function()
-          while true do
-               for key, oil_well in pairs(oil_wells) do
-                    DataManipulations_metadata_oil_well(oil_well)
-               end
-               for key, CDU in pairs(devices.oilrig_cdu) do
-                    DataManipulations_metadata_CDU(CDU)
-               end
-               for key, blender in pairs(devices.oilrig_blender) do
-                    DataManipulations_metadata_blender(blender)
-               end
-               Wait(1000)
-          end
-     end)
-end
-
 local function cal_avg_octane(res)
      local avg = 0
      for key, Type in pairs(res) do
@@ -251,7 +229,7 @@ local function cal_avg_octane(res)
      return math.ceil((avg / 5) + 0.5)
 end
 
-function DataManipulations_metadata_blender(blender)
+local function blender_calculations(blender)
      if blender.metadata.state == false then
           return
      end
@@ -261,10 +239,9 @@ function DataManipulations_metadata_blender(blender)
      if storage == false then
           -- failsafe
           local player = QBCore.Functions.GetPlayerByCitizenId(blender.citizenid)
-          TriggerClientEvent('QBCore:Notify', player.PlayerData.source,
-               "Fetal error could not coonect to your storage!", 'error')
-          TriggerClientEvent('QBCore:Notify', player.PlayerData.source,
-               "Fail-safe triggerd shuting down!", 'primary')
+          TriggerClientEvent('QBCore:Notify', player.PlayerData.source, "Fetal error could not coonect to your storage!"
+               , 'error')
+          TriggerClientEvent('QBCore:Notify', player.PlayerData.source, "Fail-safe triggerd shuting down!", 'primary')
           blender.metadata.state = false
           return
      end
@@ -327,7 +304,7 @@ function DataManipulations_metadata_blender(blender)
      storage.metadata.gasoline = Round(storage.metadata.gasoline + 0.75, 2)
 end
 
-function DataManipulations_metadata_CDU(CDU)
+local function CDUs_calculations(CDU)
      if CDU.metadata.state == false then
           if CDU.metadata.temp > 0 then
                CDU.metadata.temp = CDU.metadata.temp - 15.0
@@ -378,7 +355,7 @@ function DataManipulations_metadata_CDU(CDU)
      end
 end
 
-function DataManipulations_metadata_oil_well(oil_well)
+local function oilwell_calculations(oil_well)
      local pumpOverHeat = 327
      local sotrage_size = Oilwell_config.Settings.size.oilwell_storage
 
@@ -401,6 +378,8 @@ function DataManipulations_metadata_oil_well(oil_well)
           elseif oil_well.metadata.part_info.belt <= 0 then
                oil_well.metadata.part_info.belt = 0
                oil_well.metadata.speed = 0
+               local player = QBCore.Functions.GetPlayerByCitizenId(oil_well.citizenid)
+               TriggerClientEvent('QBCore:Notify', player.PlayerData.source, 'Shuting down (broken belt)', 'error')
                TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
           end
 
@@ -410,6 +389,9 @@ function DataManipulations_metadata_oil_well(oil_well)
           elseif oil_well.metadata.part_info.polish <= 0 then
                oil_well.metadata.part_info.polish = 0
                oil_well.metadata.speed            = 0
+               local player                       = QBCore.Functions.GetPlayerByCitizenId(oil_well.citizenid)
+               TriggerClientEvent('QBCore:Notify', player.PlayerData.source, 'Shuting down (polish value reached zero)',
+                    'error')
                TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
           end
 
@@ -419,6 +401,8 @@ function DataManipulations_metadata_oil_well(oil_well)
           elseif oil_well.metadata.part_info.clutch <= 0 then
                oil_well.metadata.part_info.clutch = 0
                oil_well.metadata.speed = 0
+               local player = QBCore.Functions.GetPlayerByCitizenId(oil_well.citizenid)
+               TriggerClientEvent('QBCore:Notify', player.PlayerData.source, 'Shuting down (broken clutch)', 'error')
                TriggerClientEvent('keep-oilrig:client:syncSpeed', -1, oil_well.id, 0)
           end
 
@@ -452,19 +436,22 @@ function DataManipulations_metadata_oil_well(oil_well)
 end
 
 -- Storage
-SendOilToStorage = function(oilrig, player, src, cb)
-     local citizenid = player.PlayerData.citizenid
-     local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
+function SendOilToStorage(oilrig, src, cb)
+     local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', oilrig.citizenid)
      if storage == false then
           InitStorage({
-               citizenid = citizenid,
-               name = player.PlayerData.name .. "'s storage",
+               citizenid = oilrig.citizenid,
+               name = "'s storage",
           })
           TriggerClientEvent('QBCore:Notify', src, "Could not connect to your stroage try again!", 'error')
           cb(false)
           return
      end
      -- add to storage
+     if not storage then
+          TriggerClientEvent('QBCore:Notify', src, "Could not connect to your stroage try again!", 'error')
+          return
+     end
      storage.metadata.crudeOil = Round(storage.metadata.crudeOil + oilrig.metadata.oil_storage, 2)
      TriggerClientEvent('QBCore:Notify', src, oilrig.metadata.oil_storage .. " Gallon of Curde Oil pumped to storage")
      -- remove from oilwell
@@ -472,7 +459,7 @@ SendOilToStorage = function(oilrig, player, src, cb)
      cb(true)
 end
 
-SendOilFuelToStorage = function(player, src, cb)
+function SendOilFuelToStorage(player, src, cb)
      local citizenid = player.PlayerData.citizenid
      local blender = GlobalScirptData:getDeviceByCitizenId('oilrig_blender', citizenid)
      local storage = GlobalScirptData:getDeviceByCitizenId('oilrig_storage', citizenid)
@@ -513,7 +500,7 @@ SendOilFuelToStorage = function(player, src, cb)
      cb(true)
 end
 
-InitStorage = function(o, cb)
+function InitStorage(o, cb)
      local sqlQuery = 'INSERT INTO oilrig_storage (citizenid,name,metadata) VALUES (?,?,?)'
      local metadata = {
           queue = {},
@@ -549,11 +536,12 @@ InitStorage = function(o, cb)
           return false
      end)
 end
+
 -- End Storage
 
 -- CDU
 
-Init_CDU = function(citizenid, cb)
+function Init_CDU(citizenid, cb)
      local sqlQuery = 'INSERT INTO oilrig_cdu (citizenid,metadata) VALUES (?,?)'
      local metadata = {
           temp = 0.0,
@@ -584,7 +572,7 @@ end
 
 -- Blender
 
-Init_Blender = function(citizenid, cb)
+function Init_Blender(citizenid, cb)
      local sqlQuery = 'INSERT INTO oilrig_blender (citizenid,metadata) VALUES (?,?)'
      local metadata = {
           heavy_naphtha = 0.0,
@@ -621,20 +609,79 @@ Init_Blender = function(citizenid, cb)
 end
 
 -- End Blender
+
+----------------------
+-- Data Manipulations
+----------------------
+
+local function startServerTick()
+     CreateThread(function()
+          while true do
+               for _, oil_well in pairs(GlobalScirptData.oil_well) do
+                    oilwell_calculations(oil_well)
+               end
+               for _, CDU in pairs(GlobalScirptData.devices.oilrig_cdu) do
+                    CDUs_calculations(CDU)
+               end
+               for _, blender in pairs(GlobalScirptData.devices.oilrig_blender) do
+                    blender_calculations(blender)
+               end
+               Wait(1000)
+          end
+     end)
+end
+
 --------------------
 -- DATABASE WRAPPER
 --------------------
-function InitilaizeAllDataByDatabaseValues_2()
-     local oil_well = MySQL.Sync.fetchAll('SELECT * FROM oilrig_position', {})
-     local oilrig_storage = MySQL.Sync.fetchAll('SELECT * FROM oilrig_storage', {})
-     local oilrig_cdu = MySQL.Sync.fetchAll('SELECT * FROM oilrig_cdu', {})
-     local oilrig_blender = MySQL.Sync.fetchAll('SELECT * FROM oilrig_blender', {})
-     GlobalScirptData:initPhaseTwo({
-          oil_well = oil_well,
-          oilrig_storage = oilrig_storage,
-          oilrig_cdu = oilrig_cdu,
-          oilrig_blender = oilrig_blender
-     })
+function Sync_with_database()
+     local o_w_sql = 'SELECT * FROM oilrig_position WHERE id = ? and deleted = false'
+     local e_sql = 'SELECT * FROM oilcompany_employees WHERE oilrig_hash = ?'
+
+     local fetch_oil_well = function(id)
+          local oil_well           = {}
+          local oil_well_employees = {}
+          oil_well                 = MySQL.Sync.fetchAll(o_w_sql, { id })
+          oil_well_employees       = MySQL.Sync.fetchAll(e_sql, { oil_well[1].oilrig_hash })
+
+          -- -- convert strings to josn type
+          oil_well[1].position = json.decode(oil_well[1].position)
+          oil_well[1].metadata = json.decode(oil_well[1].metadata)
+
+          return oil_well[1], oil_well_employees
+     end
+
+     local oil_wells = MySQL.Sync.fetchAll('SELECT id FROM `oilrig_position` WHERE deleted = false', {})
+     local oilrig_storage = {}
+     local oilrig_cdu = {}
+     local oilrig_blender = {}
+     for _, well in ipairs(oil_wells) do
+          local oil_well, employees = fetch_oil_well(well.id)
+          GlobalScirptData:newOilwell(oil_well, employees)
+     end
+     print(Colors.blue .. 'Loading Report (' .. GetCurrentResourceName() .. ')')
+     print(Colors.green .. '' .. #oil_wells .. ' oilwells')
+
+     oilrig_storage = MySQL.Sync.fetchAll('SELECT * FROM oilrig_storage', {})
+     for _, value in ipairs(oilrig_storage) do
+          GlobalScirptData:newDevice(value, 'oilrig_storage')
+     end
+     print(Colors.green .. '' .. #oilrig_storage .. ' storages')
+
+     oilrig_cdu = MySQL.Sync.fetchAll('SELECT * FROM oilrig_cdu', {})
+     for _, value in ipairs(oilrig_cdu) do
+          GlobalScirptData:newDevice(value, 'oilrig_cdu')
+     end
+     print(Colors.green .. '' .. #oilrig_cdu .. ' CDUs')
+
+     oilrig_blender = MySQL.Sync.fetchAll('SELECT * FROM oilrig_blender', {})
+     for _, value in ipairs(oilrig_blender) do
+          GlobalScirptData:newDevice(value, 'oilrig_blender')
+     end
+     print(Colors.green .. '' .. #oilrig_blender .. ' Blenders')
+     print(Colors.blue .. 'End of loading (' .. GetCurrentResourceName() .. ')')
+     GlobalScirptData:saveThread()
+     startServerTick()
 end
 
 function GeneralUpdate_2(options)

@@ -15,6 +15,22 @@
 - Owning oilwells
 - ...
 
+## Patch 1.1.0 (employees)
+
+- new notifications when an oilwell part breaks.
+- oilwell owners can employ a person to operate their oilwells for them. (employees have access to crude oil transfer, but when they use it, it sends available oil to the owner's storage, not the employee's storage.)
+- employees should have `oilwell` job.
+- owners can fire their employees at will employees access will be revoked immediately.
+- removed some data which should not be available on client-side.
+- added script loading report.
+- the CEO have ability to remove any oilwell from now on (this is not a permanent removal therefore oil wells are just flagged as deleted for easy recovery).
+- information menu is now recives data directly from server.
+
+### How to update to new patch (database changes):
+
+- 1. update your `oilrig_position` by using ALTER TABLE available at end of sql.sql
+- 2. import new table `oilcompany_employees`
+
 ## Patch 1.0.0
 
 - (important) if you are using old version make sure you have a backup.
