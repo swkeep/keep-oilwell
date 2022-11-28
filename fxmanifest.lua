@@ -20,13 +20,13 @@ client_scripts {
 
 server_script {
      '@oxmysql/lib/MySQL.lua',
-     'server/server_main.lua',
      'server/server_lib/server_lib_entry.lua',
      'server/server_lib/Server_GlobalScirptData.lua',
-     'server/server_lib/refund.lua'
+     'server/server_lib/refund.lua',
+     'server/server_main.lua',
 }
 
 
--- dependency 'oxmysql'
+dependency 'oxmysql'
 
 lua54 'yes'
