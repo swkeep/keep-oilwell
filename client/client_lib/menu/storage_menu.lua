@@ -196,7 +196,7 @@ MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
      exports[Oilwell_config.fuel_script]:SetFuel(veh, math.random(80, 90))
      SetVehicleEngineOn(veh, true, true)
 
-     TriggerServerEvent('inventory:server:addTrunkItems', vehiclePlate, items)
+     exports['qb-inventory']:addTrunkItems(vehiclePlate, items)
 
      SetNetworkIdAlwaysExistsForPlayer(NetworkGetNetworkIdFromEntity(veh), PlayerPedId(), true)
      TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(veh))
