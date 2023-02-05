@@ -15,7 +15,8 @@ client_scripts {
      'client/client_lib/menu/storage_menu.lua',
      'client/client_lib/menu/blender_menu.lua',
      'client/client_lib/menu/transport_menu.lua',
-     'client/target/target.lua'
+     'client/target/target.lua',
+     'client/target/qb_target.lua',
 }
 
 server_script {

@@ -94,7 +94,7 @@ function OilRigs:DynamicSpawner()
                     value.blip.handle = createCustom(value.position, value.blip)
                end
                if not value.qbtarget then
-                    addQbTargetToCoreEntities(value.position, index)
+                    Add_3rd_eye(value.position, index)
                     value.qbtarget = true
                end
           end

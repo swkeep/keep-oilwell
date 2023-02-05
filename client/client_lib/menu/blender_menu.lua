@@ -107,6 +107,7 @@ local function showblender(data)
                event = "qb-menu:closeMenu"
           }
      }
+
      exports['qb-menu']:openMenu(openMenu)
 end
 

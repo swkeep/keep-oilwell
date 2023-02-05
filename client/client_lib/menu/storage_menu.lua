@@ -95,6 +95,7 @@ local function showStorageActions(data)
                }
           }
      }
+
      exports['qb-menu']:openMenu(openMenu)
 end
 
@@ -196,30 +197,33 @@ MakeVehicle = function(model, Coord, TriggerLocation, DinstanceToTrigger, items)
      exports[Oilwell_config.fuel_script]:SetFuel(veh, math.random(80, 90))
      SetVehicleEngineOn(veh, true, true)
 
-     exports['qb-inventory']:addTrunkItems(vehiclePlate, items)
-
      SetNetworkIdAlwaysExistsForPlayer(NetworkGetNetworkIdFromEntity(veh), PlayerPedId(), true)
      TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(veh))
      TriggerEvent("vehiclekeys:client:SetOwner", vehiclePlate)
-     TriggerServerEvent('keep-oilwell:server_lib:update_vehicle', vehiclePlate)
-     exports['qb-target']:AddEntityZone("device-" .. vehiclePlate, veh, {
-          name = "device-" .. vehiclePlate,
-          heading = GetEntityHeading(veh),
-          debugPoly = false,
-     }, {
-          options = {
-               {
-                    type = "client",
-                    event = "keep-oilwell:client:refund_truck",
-                    icon = "fa-solid fa-location-arrow",
-                    label = "refund Truck",
-                    vehiclePlate = vehiclePlate
-               },
-          },
-          distance = 2.5
-     })
      SetModelAsNoLongerNeeded(model)
+     Targets.qb_target.truck(vehiclePlate, veh)
+
+     TriggerServerEvent('keep-oilwell:server_lib:update_vehicle', vehiclePlate, items)
 end
+
+
+RegisterNetEvent('keep-oilrig:client_lib:withdraw_from_queue', function(data)
+     QBCore.Functions.TriggerCallback('keep-oilrig:server:withdraw_from_queue', function(result)
+          -- res >> table of items
+          if result == false then
+               return
+          end
+          if not result.truck then
+               return
+          end
+          local SpawnLocation = Oilwell_config.Delivery.SpawnLocation
+          local TriggerLocation = Oilwell_config.Delivery.TriggerLocation
+          local DinstanceToTrigger = Oilwell_config.Delivery.DinstanceToTrigger
+          local model = Oilwell_config.Delivery.vehicleModel
+
+          MakeVehicle(model, SpawnLocation, TriggerLocation, DinstanceToTrigger, result)
+     end, data.truck)
+end)
 
 -- Events
 

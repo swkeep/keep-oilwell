@@ -1,3 +1,4 @@
+Targets = {}
 local QBCore = exports['qb-core']:GetCoreObject()
 
 local loaded = false

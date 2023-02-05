@@ -4,6 +4,7 @@ Oilwell_config.inventory_max_size = 41
 Oilwell_config.AnimationSpeedDivider = 20 -- higher value => less animation speed at 100%
 Oilwell_config.actionSpeed = 5 -- how fast oilpump actionspeed is updated to new action speed / just visual
 Oilwell_config.fuel_script = 'LegacyFuel'
+Oilwell_config.fuel_script = 'keep-fuel'
 
 Oilwell_config.Settings = {
      size = {
